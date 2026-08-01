@@ -1,49 +1,79 @@
-# Pi Worktree Extension
+# Pi Worktree
 
-Managed Git worktrees for Pi 0.83.0, with cwd-safe session transitions and a startup launcher for `pi -w <name>` / `pi --worktree <name>`.
+**Give every task its own checkout and its own Pi session.**
 
-A managed worktree named `task` has:
+AI coding sessions are most useful when they can stay focused on one task. But real work is rarely that tidy: a bug interrupts a feature, two changes need to proceed in parallel, or you want to experiment without disturbing the repository you already have open.
 
-- checkout: `<primary-checkout>/.pi/worktrees/task`
-- branch: `worktree-task`
-- metadata: `<git-common-dir>/pi-worktree/records/task.json`
+A normal branch switch does not isolate files. You have to stash or commit unfinished work, dependencies and generated files remain shared, and two Pi processes can overwrite the same checkout. A second clone provides isolation, but adds setup and disconnects the new directory from the conversation already in progress.
 
-The extension registers commands only; it does not expose LLM-callable tools.
+Git worktrees solve the filesystem problem. Pi Worktree connects them to Pi:
+
+```bash
+cd my-project
+pi -w fix-auth
+```
+
+That command creates an isolated checkout, creates the `worktree-fix-auth` branch, starts Pi inside it, and resumes that worktree's previous Pi session the next time you run it.
+
+You can also move an active conversation into a worktree without losing its selected `/tree` branch:
+
+```text
+/worktree fix-auth
+```
+
+Now the task has its own files, branch, working state, and conversation. Your primary checkout stays available for reviews, urgent fixes, or another Pi session.
+
+## What it gives you
+
+- **One checkout per task** — parallel agents do not edit the same files.
+- **One Pi history per worktree** — `pi -w <name>` returns to the task where you left it.
+- **Conversation-preserving transitions** — `/worktree` and `/worktree-exit` carry the active session leaf across directories.
+- **Safe, explicit cleanup** — worktrees are never deleted when Pi exits, and branches are never force-deleted.
+- **Guardrails around Git** — removal is refused for dirty, active, unrecognized, or ambiguously owned worktrees.
+
+Pi Worktree does not ask the model to manage worktrees. It provides explicit shell and slash commands, so you decide when a task moves or is removed.
 
 ## Requirements
 
-- Pi 0.83.0 from `@earendil-works/pi-coding-agent`
-- Node.js 22.19 or newer for Pi 0.83.0
+- Pi 0.83.0 (the currently tested version)
+- Node.js 22.19 or newer
 - Git with worktree support
-- a non-bare repository with at least one commit
+- A non-bare Git repository with at least one commit
 
-## Build and install
+## Installation
 
-Review the package first: Pi extensions execute with the user's permissions. Then:
+### Install from npm
 
 ```bash
-cd /absolute/path/to/pi-worktree-extension
-npm ci
-npm run typecheck
-npm test
-pi install /absolute/path/to/pi-worktree-extension
+pi install npm:pi-worktree-extension
 ```
 
-`npm test` builds `dist/`, which the launcher needs. Pi loads `src/extension.ts` through its jiti TypeScript loader. Shared worktree logic lives in `src/`; the launcher uses the compiled copy in `dist/src/`, so both entry points follow the same validation and creation path.
+This installs the Pi extension and makes these in-session commands available:
 
-For a one-off extension test without package installation:
-
-```bash
-pi --extension /absolute/path/to/pi-worktree-extension/src/extension.ts
+```text
+/worktree
+/worktree-list
+/worktree-exit
+/worktree-remove
 ```
 
-## Shell dispatcher
+Pi packages execute with your user permissions. Review the source before installing if you do not trust the package.
 
-Pi extension flags are processed after startup cwd is established. Therefore `-w` must be handled before Pi starts. Record the real Pi executable path **before** defining a shell function, then add a dispatcher like this to your shell configuration:
+### Enable `pi -w`
+
+The extension can switch worktrees after Pi starts, but Pi chooses its initial working directory before extensions load. The `pi -w` startup form therefore needs a small shell dispatcher.
+
+First, record the real Pi executable **before** defining the dispatcher:
 
 ```bash
-export PI_WORKTREE_REAL_PI="/absolute/path/to/the/real/pi"
-export PI_WORKTREE_LAUNCHER="/absolute/path/to/pi-worktree-extension/bin/pi-worktree"
+command -v pi
+```
+
+Add the following to `~/.zshrc` or `~/.bashrc`, replacing `PI_WORKTREE_REAL_PI` with that command's absolute output:
+
+```bash
+export PI_WORKTREE_REAL_PI="/absolute/path/to/pi"
+export PI_WORKTREE_LAUNCHER="$HOME/.pi/agent/npm/node_modules/.bin/pi-worktree"
 
 pi() {
   case "${1-}" in
@@ -62,115 +92,164 @@ pi() {
 }
 ```
 
-For example, obtain the path before adding the function with `command -v pi`, then place the resulting absolute path in `PI_WORKTREE_REAL_PI`. Do not point it at the launcher or dispatcher; the launcher rejects direct recursion.
-
-The dispatcher recognizes `-w` / `--worktree` only as Pi's first argument. The launcher treats its first argument as the worktree name and forwards every remaining argument unchanged. It resolves `PI_WORKTREE_REAL_PI` (including a relative path or executable symlink) to an absolute executable before changing cwd, safely prepares or validates the worktree, changes to its canonical path, and executes the real Pi as:
-
-```text
-REAL_PI --continue [remaining Pi arguments]
-```
-
-This resumes the newest session belonging to that worktree, or creates one if none exists. Because the launcher always supplies `--continue`, do not pass a competing startup session selector such as another continue/resume flag in the remaining arguments.
-
-## Usage
-
-Inside Pi:
-
-```text
-/worktree task             create or enter task
-/worktree-list             list validated managed worktrees and clean/dirty status
-/worktree-exit             clone this session back to the primary checkout
-/worktree-remove task      remove an inactive, clean checkout; retain its branch
-```
-
-At shell startup:
+Reload your shell:
 
 ```bash
-pi -w task
-pi --worktree task --model provider/model
+source ~/.zshrc # or ~/.bashrc
 ```
 
-Names must match `[a-z0-9][a-z0-9-]{0,47}` and must also produce a branch accepted by `git check-ref-format --branch`. Names are always passed to Git as argument-array values, not shell commands.
+Confirm that normal Pi commands still work:
 
-## Base configuration
+```bash
+pi --version
+```
 
-The default mode is `fresh`. Configuration is a JSON object:
+### Install from source
+
+```bash
+git clone https://github.com/AjayPoshak/pi-worktree-extension.git
+cd pi-worktree-extension
+npm ci
+npm run typecheck
+npm test
+pi install "$PWD"
+```
+
+For a source installation, point `PI_WORKTREE_LAUNCHER` at the cloned package:
+
+```bash
+export PI_WORKTREE_LAUNCHER="/absolute/path/to/pi-worktree-extension/bin/pi-worktree"
+```
+
+## Quick start
+
+Start a task from your shell:
+
+```bash
+cd /path/to/a/clean/git-repository
+pi -w fix-auth
+```
+
+Or move an existing Pi conversation into a task worktree:
+
+```text
+/worktree fix-auth
+```
+
+List managed worktrees:
+
+```text
+/worktree-list
+```
+
+Move the conversation back to the primary checkout:
+
+```text
+/worktree-exit
+```
+
+Remove the checkout when the task is finished:
+
+```text
+/worktree-remove fix-auth
+```
+
+Removal keeps the `worktree-fix-auth` branch. Delete it separately when it is merged or no longer needed:
+
+```bash
+git branch -d worktree-fix-auth
+```
+
+## Commands
+
+| Command | Purpose |
+| --- | --- |
+| `pi -w <name> [Pi args...]` | Create or reopen a task worktree and continue its latest Pi session |
+| `pi --worktree <name> [Pi args...]` | Long form of `pi -w` |
+| `/worktree <name>` | Move the active conversation into a new or existing worktree |
+| `/worktree-list` | Show managed worktrees and their clean/dirty state |
+| `/worktree-exit` | Move the active conversation back to the primary checkout |
+| `/worktree-remove <name>` | Remove an inactive, clean checkout while retaining its branch |
+
+Names must match `[a-z0-9][a-z0-9-]{0,47}`. For example: `fix-auth`, `issue-123`, or `prototype2`.
+
+## What gets created
+
+For a worktree named `fix-auth`:
+
+```text
+checkout   <repository>/.pi/worktrees/fix-auth
+branch     worktree-fix-auth
+```
+
+The checkout path is added to the repository's private Git exclude file. Pi Worktree does not modify the project's committed `.gitignore`.
+
+By default, a new worktree starts from the local `origin/HEAD`. No network fetch is performed. If `origin/HEAD` is unavailable, it falls back to the current `HEAD` and displays a warning.
+
+To always base new worktrees on the source checkout's current `HEAD`, create `~/.pi/agent/worktree.json`:
 
 ```json
 {
-  "base": "fresh"
+  "base": "head"
 }
 ```
 
-Supported values:
+A trusted project can override this at `<repository>/.pi/worktree.json`.
 
-- `fresh`: use the local symbolic `origin/HEAD` commit. If it is unavailable, use the current `HEAD` and display a warning. Version 1 never fetches.
-- `head`: use the source checkout's current `HEAD`.
+## Safety behavior
 
-Configuration is layered in this order:
+Creating a new worktree requires the source checkout to have no tracked or non-ignored untracked changes. Ignored source files, such as dependencies or local environment files, do not block creation and are not copied into the new checkout.
 
-1. `~/.pi/agent/worktree.json`
-2. `<primary-checkout>/.pi/worktree.json`, only when the project is trusted
+Existing worktrees may be reopened while dirty—unfinished work should never become inaccessible. Destructive cleanup is stricter: `/worktree-remove` refuses to proceed when the target contains tracked, untracked, **or ignored** files.
 
-For in-session commands, Pi's current project-trust decision controls project config. Before startup, the launcher can use only a persisted decision from `~/.pi/agent/trust.json`; a session-only trust decision is intentionally not treated as persisted startup trust. Unknown keys and invalid base values are rejected.
+Pi Worktree also refuses removal when:
 
-## Session transitions
+- another live Pi process is using the worktree;
+- the checkout or metadata does not match what the extension created;
+- the target is outside the managed worktree directory;
+- Git itself considers the worktree locked or unsafe to remove.
 
-`/worktree` and `/worktree-exit` require an existing persisted session file and wait for Pi to become idle. The extension uses `SessionManager.forkFrom(sourceSessionFile, targetCwd)`, then explicitly resets the clone to the source session's exact active `/tree` leaf before appending transition metadata. This preserves a selected branch even when its leaf is not the physically last JSONL entry.
+There is no force-removal mode. Quitting Pi never removes a checkout, and `/worktree-remove` never deletes its branch.
 
-`ctx.switchSession(..., { withSession })` rebuilds cwd-bound runtime resources and tools. The replacement session receives a visible context message with old/new cwd and an instruction to revalidate filesystem and repository assumptions. The old context is not used after a successful switch.
+## Current limitations
 
-If Pi cancels a switch into a newly created worktree, the extension reports target-session cleanup independently and rolls back the checkout, branch, and metadata only when the checkout is still clean at its original base commit. Ignored files count as changes. It claims full rollback only when both target-session cleanup and Git rollback succeeded; otherwise it prints the exact session path/error and checkout recovery information.
+- No automatic fetch or remote branch management
+- No automatic branch deletion
+- No worktree rename or prune command
+- Ignored files are not copied from the source checkout
+- A hard crash can leave a conservative lock or lease that requires inspection after confirming no Pi process is using it
 
-## Safety model
-
-Creation rejects:
-
-- traversal, invalid slugs, case-insensitive name/path collisions, and invalid Git branch names
-- bare repositories and unborn `HEAD`
-- symlinked `.pi` or managed worktree roots
-- any tracked path below `.pi/worktrees`
-- an existing target or branch without matching extension-owned metadata
-- non-canonical paths or paths outside the canonical managed root
-- a source checkout with tracked or non-ignored untracked changes (new creation only)
-
-Ignored source files such as dependencies and local environment files do not block creation; they are not copied in version 1. Existing worktrees may be entered only when their atomic metadata record agrees with the canonical primary root, canonical checkout path, branch, and `git worktree list --porcelain -z`. Reuse is allowed when the managed checkout itself is dirty so work is never stranded. Destructive target cleanliness combines porcelain status with ignored-file discovery, so ignored files inside a managed checkout prevent removal or rollback.
-
-The extension idempotently adds `/.pi/worktrees/` to the shared Git `info/exclude`; it never changes the repository's committed `.gitignore`. Git is invoked without a shell, always with an explicit cwd and timeout. Killed, timed-out, and nonzero Git processes are errors.
-
-Removal is conservative and explicit. `/worktree-remove` accepts only an inactive, clean, extension-managed checkout with no live process lease and uses ordinary `git worktree remove`; its branch is retained. Pi shutdown never prompts and never removes a checkout. All worktrees are preserved on quit until `/worktree-remove <name>` is run intentionally. No force-removal mode is used.
-
-Each managed checkout has per-process lease records under `<git-common-dir>/pi-worktree/leases/<name>/`. Multiple Pi processes may lease the same checkout. The launcher installs a lease owned by its shell PID before `exec` (which preserves that PID), closing the prepare-to-session-start race; `session_start` adopts or creates the runtime lease, and transitions lease their target before switching. Leases remain continuously held across Pi runtime replacement. After any native or extension-managed cwd replacement, `session_start` establishes the destination lease before releasing a different source lease; process-exit leases are removed later by dead-PID pruning. Prepare, lease, and remove decisions are serialized by atomic per-name locks under `<git-common-dir>/pi-worktree/locks/`.
-
-## Limitations
-
-- No network fetch, remote branch management, pruning, worktree rename, or automatic branch deletion.
-- “Inactive” means not the checkout hosting the current Pi process. A live or ambiguous lease refuses removal; Git may also independently refuse when another process or worktree lock uses it.
-- Startup project config requires persisted Pi trust; session-only trust cannot be known before Pi starts.
-- A hard crash can leave a lease. Dead-PID lease files are pruned during a later locked lease/removal decision. PID reuse is deliberately conservative: a reused live PID can false-block removal, but it is never treated as proof that removal is safe. Inspect ambiguous records rather than deleting them while Pi may be live.
-- A hard crash can also leave an operation lock or the short-lived `info/exclude` lock. Stale locks are never broken automatically; inspect `<git-common-dir>/pi-worktree/locks/` and `<git-common-dir>/info/exclude.pi-worktree.lock`, and remove a lock only after confirming no launcher or command is running.
-- Metadata is extension-owned. Manually moving a checkout, branch, record, or lease makes validation fail or removal conservatively block rather than silently adopting unsafe state.
-
-## Recovery and manual inspection
-
-```bash
-git worktree list --porcelain
-find "$(git rev-parse --git-common-dir)/pi-worktree/records" -type f -maxdepth 1 -print
-```
-
-A preserved branch remains `worktree-<name>`. Resolve changes normally, then use `/worktree-remove <name>` from another checkout after all Pi processes using it have exited. Do not manually delete a checkout directory; use Git worktree operations so shared administration remains consistent. If a crashed process left a lease whose PID is now live for an unrelated process, removal may remain conservatively blocked until that PID exits; inspect the lease before any manual cleanup.
+Worktrees are isolated checkouts, not security sandboxes. Pi processes still run with your normal user permissions and share the same Git repository.
 
 ## Uninstall
 
-1. Run `/worktree-list` and retain or remove each managed checkout intentionally.
-2. Remove the Pi package:
+First inspect and intentionally retain or remove your managed worktrees:
 
-   ```bash
-   pi remove /absolute/path/to/pi-worktree-extension
-   ```
+```text
+/worktree-list
+```
 
-3. Remove the dispatcher function and `PI_WORKTREE_REAL_PI` / `PI_WORKTREE_LAUNCHER` variables from shell configuration.
-4. If no managed records remain, optionally delete `<git-common-dir>/pi-worktree` and remove the single `/.pi/worktrees/` line from `<git-common-dir>/info/exclude`.
-5. Delete this package checkout if desired.
+Remove the npm package:
 
-Uninstall never deletes retained `worktree-<name>` branches automatically.
+```bash
+pi remove npm:pi-worktree-extension
+```
+
+Then remove the dispatcher function and the `PI_WORKTREE_REAL_PI` / `PI_WORKTREE_LAUNCHER` variables from your shell configuration.
+
+Uninstalling the extension does not delete worktrees or `worktree-*` branches.
+
+## Development
+
+```bash
+npm ci
+npm run typecheck
+npm test
+npm pack --dry-run
+```
+
+The launcher uses the compiled output in `dist/`; `npm test` and the package `prepack` lifecycle build it.
+
+## License
+
+MIT
