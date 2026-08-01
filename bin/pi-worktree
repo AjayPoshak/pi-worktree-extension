@@ -1,0 +1,51 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if (($# < 1)); then
+  echo "usage: pi-worktree <name> [Pi args...]" >&2
+  exit 2
+fi
+
+name=$1
+shift
+
+# Follow package-manager .bin symlinks before deriving the physical package root.
+script_source=${BASH_SOURCE[0]}
+while [[ -L "$script_source" ]]; do
+  source_dir=$(cd -- "$(dirname -- "$script_source")" && pwd -P)
+  link_target=$(readlink -- "$script_source")
+  if [[ "$link_target" = /* ]]; then
+    script_source=$link_target
+  else
+    script_source=$source_dir/$link_target
+  fi
+done
+script_dir=$(cd -- "$(dirname -- "$script_source")" && pwd -P)
+package_dir=$(cd -- "$script_dir/.." && pwd -P)
+real_pi=${PI_WORKTREE_REAL_PI:-}
+
+if [[ -z "$real_pi" ]]; then
+  echo "pi-worktree: PI_WORKTREE_REAL_PI must name the real Pi executable" >&2
+  exit 2
+fi
+# Resolve relative paths and executable symlinks now; cwd changes to the checkout later.
+if ! real_pi=$(node -e 'process.stdout.write(require("node:fs").realpathSync(process.argv[1]))' "$real_pi" 2>/dev/null); then
+  echo "pi-worktree: PI_WORKTREE_REAL_PI cannot be resolved: $PI_WORKTREE_REAL_PI" >&2
+  exit 2
+fi
+if [[ "$real_pi" != /* || ! -x "$real_pi" ]]; then
+  echo "pi-worktree: PI_WORKTREE_REAL_PI is not an absolute executable path: $real_pi" >&2
+  exit 2
+fi
+if [[ "$real_pi" -ef "$script_source" ]]; then
+  echo "pi-worktree: PI_WORKTREE_REAL_PI resolves to this launcher (recursion refused)" >&2
+  exit 2
+fi
+if [[ ! -f "$package_dir/dist/src/launcher-prepare.js" ]]; then
+  echo "pi-worktree: build output is missing; run npm run build in $package_dir" >&2
+  exit 2
+fi
+
+target=$(PI_WORKTREE_LEASE_PID=$$ node "$package_dir/dist/src/launcher-prepare.js" "$name")
+cd -- "$target"
+exec "$real_pi" --continue "$@"

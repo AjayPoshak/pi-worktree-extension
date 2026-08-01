@@ -1,0 +1,41 @@
+{
+  "name": "pi-worktree-extension",
+  "version": "1.0.0",
+  "description": "Managed Git worktrees and session transitions for Pi",
+  "keywords": ["pi-package", "pi", "git", "worktree"],
+  "type": "module",
+  "license": "MIT",
+  "files": [
+    "bin",
+    "dist/src",
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
+  "bin": {
+    "pi-worktree": "bin/pi-worktree"
+  },
+  "pi": {
+    "extensions": [
+      "./src/extension.ts"
+    ]
+  },
+  "scripts": {
+    "clean": "rm -rf dist",
+    "typecheck": "tsc --noEmit",
+    "build": "npm run clean && tsc",
+    "test": "npm run build && node --test dist/test/*.test.js",
+    "prepack": "npm run build"
+  },
+  "engines": {
+    "node": ">=22.19.0"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "*"
+  },
+  "devDependencies": {
+    "@earendil-works/pi-coding-agent": "0.83.0",
+    "@types/node": "^22.0.0",
+    "typescript": "^5.7.0"
+  }
+}
