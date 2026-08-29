@@ -1,6 +1,6 @@
 {
   "name": "pi-worktree-extension",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Managed Git worktrees and session transitions for Pi",
   "author": "Ajay Poshak",
   "repository": {
@@ -11,7 +11,12 @@
   "bugs": {
     "url": "https://github.com/AjayPoshak/pi-worktree-extension/issues"
   },
-  "keywords": ["pi-package", "pi", "git", "worktree"],
+  "keywords": [
+    "pi-package",
+    "pi",
+    "git",
+    "worktree"
+  ],
   "type": "module",
   "license": "MIT",
   "files": [

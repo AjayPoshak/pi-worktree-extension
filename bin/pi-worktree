@@ -48,4 +48,9 @@ fi
 
 target=$(PI_WORKTREE_LEASE_PID=$$ node "$package_dir/dist/src/launcher-prepare.js" "$name")
 cd -- "$target"
+
+if [[ -t 1 ]]; then
+  node -e 'const { pathToFileURL } = require("node:url"); process.stdout.write(`\x1b]7;${pathToFileURL(process.cwd()).href}\x1b\\`);'
+fi
+
 exec "$real_pi" --continue "$@"
