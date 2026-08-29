@@ -37,12 +37,7 @@ export async function reportCmuxCwd(cwd: string, environment = process.env): Pro
     socket.once("connect", () => socket.end(`report_pwd "${quotedCwd}" ${options}\n`, () => finish(true)));
   });
 
-  // cmux uses the panel value for the current terminal and the tab value as
-  // the default directory when creating a new tab. Shell integration reports
-  // both pieces of state through these two forms of the same command.
-  const [panelReported, tabReported] = await Promise.all([
-    send(`--tab=${tabId} --panel=${panelId}`),
-    send(`--tab=${tabId}`),
-  ]);
-  return panelReported && tabReported;
+  // Match cmux's bundled shell integration exactly. This single report updates
+  // both the panel directory and the tab's current directory used by new tabs.
+  return send(`--tab=${tabId} --panel=${panelId}`);
 }
