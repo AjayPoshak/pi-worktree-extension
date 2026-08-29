@@ -24,7 +24,8 @@
     "dist/src",
     "src",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "skills"
   ],
   "bin": {
     "pi-worktree": "bin/pi-worktree"
@@ -32,6 +33,9 @@
   "pi": {
     "extensions": [
       "./src/extension.ts"
+    ],
+    "skills": [
+      "./skills"
     ]
   },
   "scripts": {

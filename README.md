@@ -225,6 +225,17 @@ Names must match `[a-z0-9][a-z0-9-]{0,47}`. Examples: `fix-auth`, `issue-123`, `
 
 `pi -w` supplies `--continue` itself. Other Pi arguments are forwarded unchanged, but do not pass another startup resume or continue selector.
 
+## Agent skills
+
+This package includes four focused skills for Pi:
+
+- Create worktree
+- Switch worktree
+- List worktrees
+- Remove worktree
+
+They guide safe worktree commands and simple recency-sorted selection lists.
+
 ## Base for new worktrees
 
 The default mode is `fresh`: new worktrees start from the local `origin/HEAD`. Pi Worktree never fetches from the network. If `origin/HEAD` is unavailable, it uses the current `HEAD` and displays a warning.
