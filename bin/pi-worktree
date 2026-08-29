@@ -65,7 +65,7 @@ if [[ -n "${CMUX_SOCKET_PATH:-}" && -n "${CMUX_TAB_ID:-${CMUX_WORKSPACE_ID:-}}" 
     );
     const timer = setTimeout(() => { socket.destroy(); process.exit(0); }, 1000);
     socket.on("error", () => { clearTimeout(timer); process.exit(0); });
-  ' "$CMUX_SOCKET_PATH" "${CMUX_TAB_ID:-$CMUX_WORKSPACE_ID}" "${CMUX_PANEL_ID:-$CMUX_SURFACE_ID}" "$target" >/dev/null 2>&1
+  ' "$CMUX_SOCKET_PATH" "${CMUX_TAB_ID:-$CMUX_WORKSPACE_ID}" "${CMUX_PANEL_ID:-$CMUX_SURFACE_ID}" "$target" >/dev/null 2>&1 || true
 fi
 
 exec "$real_pi" --continue "$@"
