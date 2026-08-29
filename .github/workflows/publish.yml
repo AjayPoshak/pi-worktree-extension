@@ -30,7 +30,9 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: npm
-          registry-url: ${{ env.REGISTRY }}
+
+      - name: Upgrade npm for trusted publishing
+        run: npm install --global npm@11
 
       - name: Install dependencies
         run: npm ci
@@ -43,22 +45,6 @@ jobs:
         shell: bash
         run: |
           node -e 'const { name, version } = require("./package.json"); console.log(`name=${name}\nversion=${version}`)' >> "$GITHUB_OUTPUT"
-
-      - name: Create GitHub release with generated notes
-        env:
-          GH_TOKEN: ${{ github.token }}
-          PACKAGE_VERSION: ${{ steps.package.outputs.version }}
-        run: |
-          TAG="v${PACKAGE_VERSION}"
-          if gh release view "$TAG" >/dev/null 2>&1; then
-            echo "GitHub release $TAG already exists; keeping its release notes."
-          else
-            gh release create "$TAG" \
-              --target "$GITHUB_SHA" \
-              --title "${{ steps.package.outputs.name }} $TAG" \
-              --generate-notes
-          fi
-          echo "tag=$TAG" >> "$GITHUB_ENV"
 
       - name: Check whether this version is already published
         id: published
@@ -77,5 +63,29 @@ jobs:
       - name: Publish package
         if: steps.published.outputs.exists != 'true'
         run: npm publish --provenance --access public
+
+      - name: Create GitHub release with generated notes
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
+          PACKAGE_VERSION: ${{ steps.package.outputs.version }}
+        run: |
+          TAG="v${PACKAGE_VERSION}"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "GitHub release $TAG already exists; keeping its release notes."
+          else
+            gh api --method POST "repos/${GITHUB_REPOSITORY}/releases/generate-notes" \
+              -f tag_name="$TAG" \
+              -f target_commitish="$GITHUB_SHA" \
+              --jq .body |
+              node -e '
+                const fs = require("node:fs");
+                const notes = fs.readFileSync(0, "utf8")
+                  .replace(/ by @[A-Za-z0-9-]+ in (https:\/\/github\.com\/[^\s]+\/pull\/(\d+))/g, " ([#$2]($1))")
+                  .replace(/\n## New Contributors\n[\s\S]*?(?=\n## |\n\*\*Full Changelog\*\*|$)/g, "\n");
+                process.stdout.write(notes);
+              ' > release-notes.md
+            gh release create "$TAG" \
+              --target "$GITHUB_SHA" \
+              --title "${{ steps.package.outputs.name }} $TAG" \
+              --notes-file release-notes.md
+          fi
