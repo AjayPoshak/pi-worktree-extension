@@ -1,6 +1,7 @@
 import { rm, stat } from "node:fs/promises";
 import { SessionManager, type ExtensionAPI, type ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
 import { createLease, removeLease } from "./leases.js";
+import { reportCmuxCwd, reportTerminalCwd } from "./terminal.js";
 import {
   findCurrentManaged,
   listManaged,
@@ -234,6 +235,12 @@ export default function piWorktreeExtension(pi: ExtensionAPI): void {
       }
 
       ctx.ui.setStatus(STATUS_KEY, current ? `worktree: ${current.name}` : undefined);
+      // Pi keeps its process alive when sessions change cwd. Tell cmux about every
+      // replacement session, not only worktrees launched through `pi -w`.
+      if (ctx.mode === "tui") {
+        reportTerminalCwd(ctx.cwd);
+        void reportCmuxCwd(ctx.cwd);
+      }
     } catch (error) {
       ctx.ui.setStatus(STATUS_KEY, undefined);
       ctx.ui.notify(`Worktree lease/status setup failed: ${errorMessage(error)}`, "warning");
