@@ -5,6 +5,7 @@ import { promisify } from "node:util";
 import { chmod, lstat, mkdtemp, mkdir, readFile, realpath, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { pathToFileURL } from "node:url";
 import { createLease, removeLease } from "../src/leases.js";
 import { recordPath, recordsDirectory } from "../src/metadata.js";
 import { listManaged, prepareWorktree, removeManaged, resolveRepository, rollbackCreated } from "../src/worktrees.js";
@@ -89,6 +90,25 @@ test("startup launcher creates, reuses, changes cwd, and passes Pi arguments", a
     assert.match(first.stderr, /No network fetch was attempted/);
     assert.equal(await readFile(join(capture, "cwd"), "utf8"), target);
     assert.deepEqual((await readFile(join(capture, "args"), "utf8")).trim().split("\n"), ["--continue", "--model", "provider/model"]);
+
+    const transcript = join(fixture.root, "terminal-output");
+    const ptyCapture = [
+      "import os, pty, sys",
+      "pid, fd = pty.fork()",
+      "if pid == 0: os.execv(sys.argv[2], sys.argv[2:])",
+      "chunks = []",
+      "while True:",
+      "  try: data = os.read(fd, 4096)",
+      "  except OSError: break",
+      "  if not data: break",
+      "  chunks.append(data)",
+      "_, status = os.waitpid(pid, 0)",
+      "open(sys.argv[1], 'wb').write(b''.join(chunks))",
+      "raise SystemExit(os.waitstatus_to_exitcode(status))",
+    ].join("\n");
+    await execFile("python3", ["-c", ptyCapture, transcript, launcher, "startup"], { cwd: fixture.repo, env });
+    const expectedCwdReport = `\x1b]7;${pathToFileURL(target).href}\x1b\\`;
+    assert.equal((await readFile(transcript, "utf8")).includes(expectedCwdReport), true);
 
     // A relative real-Pi path is canonicalized before cwd changes.
     await execFile(launcher, ["startup", "--thinking", "high"], {
