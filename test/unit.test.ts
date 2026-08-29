@@ -1,12 +1,13 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { chmod, mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { isPersistentlyTrusted, loadConfig, testing as configTesting } from "../src/config.js";
 import { parseRecord, readRecord, writeRecordAtomic, type WorktreeRecord } from "../src/metadata.js";
 import { isContained } from "../src/paths.js";
 import { parseWorktreePorcelain } from "../src/porcelain.js";
+import { reportCmuxCwd, reportTerminalCwd } from "../src/terminal.js";
 import { validateSlug } from "../src/worktrees.js";
 
 for (const valid of ["a", "0", "feature-1", "a".repeat(48)]) {
@@ -25,6 +26,35 @@ test("porcelain parser handles NUL records, spaces, flags, and unknown fields", 
     { path: "/tmp/main repo", head: "012345", branch: "refs/heads/main", bare: false, detached: false },
     { path: "/tmp/linked", head: "abcdef", bare: false, detached: true, locked: "reason with spaces" },
   ]);
+});
+
+test("reports the active worktree through OSC 7 only to an interactive terminal", () => {
+  const writes: string[] = [];
+  assert.equal(reportTerminalCwd("/repo/.pi/worktrees/fix auth", { isTTY: true, write: (text) => { writes.push(text); } }), true);
+  assert.deepEqual(writes, ["\x1b]7;file:///repo/.pi/worktrees/fix%20auth\x1b\\"]);
+  assert.equal(reportTerminalCwd("/repo", { isTTY: false, write: (text) => { writes.push(text); } }), false);
+  assert.equal(writes.length, 1);
+});
+
+test("reports the exact surface cwd through cmux's control API", async () => {
+  const root = await mkdtemp(join(tmpdir(), "pi-worktree-cmux-"));
+  const capture = join(root, "args");
+  const cmux = join(root, "cmux");
+  try {
+    await writeFile(cmux, `#!/usr/bin/env bash\nprintf '%s\\n' "$@" > '${capture}'\n`);
+    await chmod(cmux, 0o755);
+    assert.equal(await reportCmuxCwd("/repo/.pi/worktrees/task", {
+      ...process.env,
+      CMUX_BUNDLED_CLI_PATH: cmux,
+      CMUX_WORKSPACE_ID: "workspace-id",
+      CMUX_PANEL_ID: "panel-id",
+    }), true);
+    const [command, method, payload] = (await readFile(capture, "utf8")).trim().split("\n");
+    assert.deepEqual([command, method], ["rpc", "surface.report_pwd"]);
+    assert.deepEqual(JSON.parse(payload ?? ""), {
+      workspace_id: "workspace-id", surface_id: "panel-id", path: "/repo/.pi/worktrees/task",
+    });
+  } finally { await rm(root, { recursive: true, force: true }); }
 });
 
 test("canonical containment rejects siblings, equality, and traversal", () => {
