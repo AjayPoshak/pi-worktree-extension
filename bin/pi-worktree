@@ -60,13 +60,11 @@ if [[ -n "${CMUX_SOCKET_PATH:-}" && -n "${CMUX_TAB_ID:-${CMUX_WORKSPACE_ID:-}}" 
     const net = require("node:net");
     const [socketPath, tab, panel, cwd] = process.argv.slice(1);
     const quoted = cwd.replaceAll("\\", "\\\\").replaceAll("\"", "\\\"");
-    const send = (options) => new Promise((resolve) => {
-      const socket = net.createConnection(socketPath, () => socket.end(`report_pwd "${quoted}" ${options}\n`));
-      const timer = setTimeout(() => { socket.destroy(); resolve(); }, 1000);
-      socket.on("error", () => { clearTimeout(timer); resolve(); });
-      socket.on("close", () => { clearTimeout(timer); resolve(); });
-    });
-    Promise.all([send(`--tab=${tab} --panel=${panel}`), send(`--tab=${tab}`)]).then(() => process.exit(0));
+    const socket = net.createConnection(socketPath, () =>
+      socket.end(`report_pwd "${quoted}" --tab=${tab} --panel=${panel}\n`), () => process.exit(0)),
+    );
+    const timer = setTimeout(() => { socket.destroy(); process.exit(0); }, 1000);
+    socket.on("error", () => { clearTimeout(timer); process.exit(0); });
   ' "$CMUX_SOCKET_PATH" "${CMUX_TAB_ID:-$CMUX_WORKSPACE_ID}" "${CMUX_PANEL_ID:-$CMUX_SURFACE_ID}" "$target" >/dev/null 2>&1
 fi
 

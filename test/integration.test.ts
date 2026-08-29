@@ -84,7 +84,14 @@ test("startup launcher creates, reuses, changes cwd, and passes Pi arguments", a
     await writeFile(fakePi, '#!/usr/bin/env bash\nprintf "%s" "$PWD" > "$CAPTURE/cwd"\nprintf "%s\\n" "$@" > "$CAPTURE/args"\n');
     await chmod(fakePi, 0o755);
     const launcher = join(process.cwd(), "bin", "pi-worktree");
-    const env = { ...process.env, HOME: fixture.home, CAPTURE: capture, PI_WORKTREE_REAL_PI: fakePi };
+    const env: NodeJS.ProcessEnv = { ...process.env, HOME: fixture.home, CAPTURE: capture, PI_WORKTREE_REAL_PI: fakePi };
+    // Never let launcher tests report fixture paths to the developer's live cmux tab.
+    delete env.CMUX_SOCKET_PATH;
+    delete env.CMUX_SOCKET;
+    delete env.CMUX_TAB_ID;
+    delete env.CMUX_WORKSPACE_ID;
+    delete env.CMUX_PANEL_ID;
+    delete env.CMUX_SURFACE_ID;
     const first = await execFile(launcher, ["startup", "--model", "provider/model"], { cwd: fixture.repo, env });
     const target = join(fixture.repo, ".pi", "worktrees", "startup");
     assert.match(first.stderr, /No network fetch was attempted/);

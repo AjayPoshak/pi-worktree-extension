@@ -51,10 +51,9 @@ test("reports the exact surface cwd through cmux's shell socket", async () => {
       CMUX_PANEL_ID: "panel-id",
     }), true);
     await new Promise((resolve) => setTimeout(resolve, 20));
-    assert.deepEqual(received.split("\n").filter(Boolean).sort(), [
-      'report_pwd "/repo/.pi/worktrees/fix \\"quoted\\"" --tab=tab-id',
+    assert.deepEqual(received.split("\n").filter(Boolean), [
       'report_pwd "/repo/.pi/worktrees/fix \\"quoted\\"" --tab=tab-id --panel=panel-id',
-    ].sort());
+    ]);
   } finally {
     await new Promise<void>((resolve) => server.close(() => resolve()));
     await rm(root, { recursive: true, force: true });
