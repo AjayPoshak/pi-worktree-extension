@@ -1,8 +1,5 @@
-import { execFile as execFileCallback } from "node:child_process";
-import { promisify } from "node:util";
+import { createConnection } from "node:net";
 import { pathToFileURL } from "node:url";
-
-const execFile = promisify(execFileCallback);
 
 interface TerminalOutput {
   isTTY?: boolean;
@@ -15,22 +12,37 @@ export function reportTerminalCwd(cwd: string, output: TerminalOutput = process.
   return true;
 }
 
-/** Update cmux's workspace state, which drives its new-tab directory. */
+/** Update cmux's shell state, which drives its new-tab directory. */
 export async function reportCmuxCwd(cwd: string, environment = process.env): Promise<boolean> {
-  const workspaceId = environment.CMUX_WORKSPACE_ID;
-  const surfaceId = environment.CMUX_PANEL_ID ?? environment.CMUX_SURFACE_ID;
-  if (!workspaceId || !surfaceId) return false;
+  const socketPath = environment.CMUX_SOCKET_PATH;
+  const tabId = environment.CMUX_TAB_ID ?? environment.CMUX_WORKSPACE_ID;
+  const panelId = environment.CMUX_PANEL_ID ?? environment.CMUX_SURFACE_ID;
+  if (!socketPath || !tabId || !panelId) return false;
 
-  const cmux = environment.CMUX_BUNDLED_CLI_PATH || "cmux";
-  try {
-    await execFile(cmux, ["rpc", "surface.report_pwd", JSON.stringify({
-      workspace_id: workspaceId,
-      surface_id: surfaceId,
-      path: cwd,
-    })], { timeout: 1_000, windowsHide: true });
-    return true;
-  } catch {
-    // cmux is optional; its control socket must never delay Pi startup.
-    return false;
-  }
+  // This is cmux's shell-integration protocol, not its public JSON-RPC API.
+  const quotedCwd = cwd.replaceAll("\\", "\\\\").replaceAll('"', '\\"');
+  const send = (options: string): Promise<boolean> => new Promise((resolve) => {
+    let settled = false;
+    const finish = (reported: boolean): void => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      resolve(reported);
+    };
+    const socket = createConnection(socketPath);
+    const timer = setTimeout(() => { socket.destroy(); finish(false); }, 1_000);
+    socket.once("error", () => finish(false));
+    // A successful local write is enough: cmux closes this one-way protocol
+    // without a response and may reset the connection after consuming it.
+    socket.once("connect", () => socket.end(`report_pwd "${quotedCwd}" ${options}\n`, () => finish(true)));
+  });
+
+  // cmux uses the panel value for the current terminal and the tab value as
+  // the default directory when creating a new tab. Shell integration reports
+  // both pieces of state through these two forms of the same command.
+  const [panelReported, tabReported] = await Promise.all([
+    send(`--tab=${tabId} --panel=${panelId}`),
+    send(`--tab=${tabId}`),
+  ]);
+  return panelReported && tabReported;
 }

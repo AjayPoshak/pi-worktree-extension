@@ -53,12 +53,21 @@ if [[ -t 1 ]]; then
   node -e 'const { pathToFileURL } = require("node:url"); process.stdout.write(`\x1b]7;${pathToFileURL(process.cwd()).href}\x1b\\`);'
 fi
 
-# cmux inherits new tabs from its control-socket directory state, not OSC 7.
-# Match its shell integration and update that state for the launching surface.
-if [[ -n "${CMUX_WORKSPACE_ID:-}" && -n "${CMUX_PANEL_ID:-}" ]]; then
-  cmux_cli=${CMUX_BUNDLED_CLI_PATH:-cmux}
-  cmux_payload=$(node -e 'process.stdout.write(JSON.stringify({ workspace_id: process.argv[2], surface_id: process.argv[3], path: process.argv[1] }))' "$target" "$CMUX_WORKSPACE_ID" "$CMUX_PANEL_ID")
-  "$cmux_cli" rpc surface.report_pwd "$cmux_payload" >/dev/null 2>&1 &
+# cmux's new-tab cwd is updated by its shell-integration socket protocol.
+# The similarly named surface.report_pwd JSON-RPC method is not a public API.
+if [[ -n "${CMUX_SOCKET_PATH:-}" && -n "${CMUX_TAB_ID:-${CMUX_WORKSPACE_ID:-}}" && -n "${CMUX_PANEL_ID:-${CMUX_SURFACE_ID:-}}" ]]; then
+  node -e '
+    const net = require("node:net");
+    const [socketPath, tab, panel, cwd] = process.argv.slice(1);
+    const quoted = cwd.replaceAll("\\", "\\\\").replaceAll("\"", "\\\"");
+    const send = (options) => new Promise((resolve) => {
+      const socket = net.createConnection(socketPath, () => socket.end(`report_pwd "${quoted}" ${options}\n`));
+      const timer = setTimeout(() => { socket.destroy(); resolve(); }, 1000);
+      socket.on("error", () => { clearTimeout(timer); resolve(); });
+      socket.on("close", () => { clearTimeout(timer); resolve(); });
+    });
+    Promise.all([send(`--tab=${tab} --panel=${panel}`), send(`--tab=${tab}`)]).then(() => process.exit(0));
+  ' "$CMUX_SOCKET_PATH" "${CMUX_TAB_ID:-$CMUX_WORKSPACE_ID}" "${CMUX_PANEL_ID:-$CMUX_SURFACE_ID}" "$target" >/dev/null 2>&1
 fi
 
 exec "$real_pi" --continue "$@"
