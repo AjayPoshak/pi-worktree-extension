@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { chmod, mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { isPersistentlyTrusted, loadConfig, testing as configTesting } from "../src/config.js";
@@ -36,25 +37,28 @@ test("reports the active worktree through OSC 7 only to an interactive terminal"
   assert.equal(writes.length, 1);
 });
 
-test("reports the exact surface cwd through cmux's control API", async () => {
+test("reports the exact surface cwd through cmux's shell socket", async () => {
   const root = await mkdtemp(join(tmpdir(), "pi-worktree-cmux-"));
-  const capture = join(root, "args");
-  const cmux = join(root, "cmux");
+  const socketPath = join(root, "cmux.sock");
+  let received = "";
+  const server = createServer((socket) => socket.on("data", (chunk) => { received += chunk.toString(); }));
   try {
-    await writeFile(cmux, `#!/usr/bin/env bash\nprintf '%s\\n' "$@" > '${capture}'\n`);
-    await chmod(cmux, 0o755);
-    assert.equal(await reportCmuxCwd("/repo/.pi/worktrees/task", {
+    await new Promise<void>((resolve, reject) => server.listen(socketPath, resolve).once("error", reject));
+    assert.equal(await reportCmuxCwd('/repo/.pi/worktrees/fix "quoted"', {
       ...process.env,
-      CMUX_BUNDLED_CLI_PATH: cmux,
-      CMUX_WORKSPACE_ID: "workspace-id",
+      CMUX_SOCKET_PATH: socketPath,
+      CMUX_TAB_ID: "tab-id",
       CMUX_PANEL_ID: "panel-id",
     }), true);
-    const [command, method, payload] = (await readFile(capture, "utf8")).trim().split("\n");
-    assert.deepEqual([command, method], ["rpc", "surface.report_pwd"]);
-    assert.deepEqual(JSON.parse(payload ?? ""), {
-      workspace_id: "workspace-id", surface_id: "panel-id", path: "/repo/.pi/worktrees/task",
-    });
-  } finally { await rm(root, { recursive: true, force: true }); }
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    assert.deepEqual(received.split("\n").filter(Boolean).sort(), [
+      'report_pwd "/repo/.pi/worktrees/fix \\"quoted\\"" --tab=tab-id',
+      'report_pwd "/repo/.pi/worktrees/fix \\"quoted\\"" --tab=tab-id --panel=panel-id',
+    ].sort());
+  } finally {
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+    await rm(root, { recursive: true, force: true });
+  }
 });
 
 test("canonical containment rejects siblings, equality, and traversal", () => {
