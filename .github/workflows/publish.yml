@@ -30,7 +30,9 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: npm
-          registry-url: ${{ env.REGISTRY }}
+
+      - name: Upgrade npm for trusted publishing
+        run: npm install --global npm@11
 
       - name: Install dependencies
         run: npm ci
@@ -77,5 +79,3 @@ jobs:
       - name: Publish package
         if: steps.published.outputs.exists != 'true'
         run: npm publish --provenance --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
