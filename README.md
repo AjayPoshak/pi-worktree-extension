@@ -1,6 +1,7 @@
 # Pi Worktree
 
 [![npm](https://img.shields.io/npm/v/pi-worktree-extension?style=for-the-badge&logo=npm)](https://www.npmjs.com/package/pi-worktree-extension)
+[![npm weekly downloads](https://img.shields.io/npm/dw/pi-worktree-extension?style=for-the-badge&logo=npm)](https://www.npmjs.com/package/pi-worktree-extension)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue?style=for-the-badge)](LICENSE)
 [![GitHub stars](https://img.shields.io/github/stars/AjayPoshak/pi-worktree-extension?style=for-the-badge&logo=github)](https://github.com/AjayPoshak/pi-worktree-extension/stargazers)
 
