@@ -1,0 +1,82 @@
+name: Release and publish package
+
+on:
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: publish-main
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  id-token: write
+
+env:
+  REGISTRY: https://registry.npmjs.org
+
+jobs:
+  release-and-publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          registry-url: ${{ env.REGISTRY }}
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm test
+
+      - name: Read package metadata
+        id: package
+        shell: bash
+        run: |
+          echo "name=$(node -p \"require('./package.json').name\")" >> "$GITHUB_OUTPUT"
+          echo "version=$(node -p \"require('./package.json').version\")" >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub release with generated notes
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PACKAGE_VERSION: ${{ steps.package.outputs.version }}
+        run: |
+          TAG="v${PACKAGE_VERSION}"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "GitHub release $TAG already exists; keeping its release notes."
+          else
+            gh release create "$TAG" \
+              --target "$GITHUB_SHA" \
+              --title "${{ steps.package.outputs.name }} $TAG" \
+              --generate-notes
+          fi
+          echo "tag=$TAG" >> "$GITHUB_ENV"
+
+      - name: Check whether this version is already published
+        id: published
+        shell: bash
+        env:
+          PACKAGE_NAME: ${{ steps.package.outputs.name }}
+          PACKAGE_VERSION: ${{ steps.package.outputs.version }}
+        run: |
+          if npm view "${PACKAGE_NAME}@${PACKAGE_VERSION}" version --registry="$REGISTRY" >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "${PACKAGE_NAME}@${PACKAGE_VERSION} is already published; skipping."
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Publish package
+        if: steps.published.outputs.exists != 'true'
+        run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

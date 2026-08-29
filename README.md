@@ -125,6 +125,17 @@ export PI_WORKTREE_LAUNCHER="/absolute/path/to/pi-worktree-extension/bin/pi-work
 
 </details>
 
+## Publish a release
+
+Publishing runs automatically for every push to `main` when the version in `package.json` is not already on npm. Create a version commit with npm, then merge it to `main`:
+
+```bash
+npm version patch # or minor / major
+git push origin HEAD
+```
+
+Configure the repository's `NPM_TOKEN` secret with an npm publish token. The workflow runs the test suite before publishing and generates npm provenance.
+
 ## Quick start
 
 From an ordinary Pi session in a clean Git checkout, move the current conversation into an isolated task:
