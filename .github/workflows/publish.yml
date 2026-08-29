@@ -42,8 +42,7 @@ jobs:
         id: package
         shell: bash
         run: |
-          echo "name=$(node -p \"require('./package.json').name\")" >> "$GITHUB_OUTPUT"
-          echo "version=$(node -p \"require('./package.json').version\")" >> "$GITHUB_OUTPUT"
+          node -e 'const { name, version } = require("./package.json"); console.log(`name=${name}\nversion=${version}`)' >> "$GITHUB_OUTPUT"
 
       - name: Create GitHub release with generated notes
         env:
