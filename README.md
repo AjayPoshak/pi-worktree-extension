@@ -142,8 +142,6 @@ Already mid-conversation? `/worktree feature-auth` moves it — full history inc
 
 Names match `[a-z0-9][a-z0-9-]{0,47}` — e.g. `fix-auth`, `issue-123`, `prototype2`. `pi -w` supplies `--continue` itself; forward other Pi arguments freely, but not another resume/continue selector.
 
-Ships with four Pi skills — create, switch, list, and remove worktree — that guide safe commands and recency-sorted selection.
-
 ## 🛡️ Safety by default
 
 - New worktrees branch from local `origin/HEAD` (never fetched — falls back to `HEAD` with a warning if `origin/HEAD` isn't available). Prefer `HEAD` instead? Set `{ "base": "head" }` in `~/.pi/agent/worktree.json` or `<repository>/.pi/worktree.json`.
