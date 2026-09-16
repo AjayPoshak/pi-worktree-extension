@@ -7,7 +7,7 @@ import { SessionManager, type ExtensionAPI, type ExtensionCommandContext } from 
 import piWorktreeExtension from "../src/extension.js";
 import { runGit } from "../src/git.js";
 import { listLiveLeases } from "../src/leases.js";
-import { resolveRepository } from "../src/worktrees.js";
+import { prepareWorktree, resolveRepository } from "../src/worktrees.js";
 
 interface RegisteredCommand {
   handler: (args: string, ctx: ExtensionCommandContext) => Promise<void>;
@@ -152,6 +152,43 @@ test("registers commands and switches from the exact non-final active leaf using
   } finally {
     if (previousSessionDir === undefined) delete process.env.PI_CODING_AGENT_SESSION_DIR;
     else process.env.PI_CODING_AGENT_SESSION_DIR = previousSessionDir;
+    await rm(fixture.root, { recursive: true, force: true });
+  }
+});
+
+test("worktree list hides invalid metadata records", { concurrency: false }, async () => {
+  const fixture = await makeRepository();
+  try {
+    const records = join(fixture.repo, ".git", "pi-worktree", "records");
+    await mkdir(records, { recursive: true });
+    await writeFile(join(records, "stale.json"), `${JSON.stringify({
+      version: 1,
+      name: "stale",
+      primaryRoot: fixture.repo,
+      path: join(fixture.repo, ".pi", "worktrees", "stale"),
+      branch: "worktree-stale",
+      baseOid: (await runGit(["rev-parse", "HEAD"], fixture.repo)).stdout.trim(),
+      createdAt: new Date().toISOString(),
+    })}\n`);
+
+    await prepareWorktree(fixture.repo, "listed", { trustProject: false, home: fixture.home });
+
+    const { commands } = registerExtension();
+    const notifications: Array<{ message: string; level: string }> = [];
+    const ctx = makeContext(
+      fixture.repo,
+      SessionManager.create(fixture.repo, fixture.sessions),
+      notifications,
+      async () => ({ cancelled: false }),
+      [],
+    );
+    await commands.get("worktree-list")?.handler("", ctx);
+
+    assert.deepEqual(notifications, [{ message: "worktree: listed, branch: worktree-listed", level: "info" }]);
+
+    await commands.get("worktree-remove")?.handler("listed", ctx);
+    assert.deepEqual(notifications.at(-1), { message: "Removed worktree: listed, branch: worktree-listed. Branch was retained.", level: "info" });
+  } finally {
     await rm(fixture.root, { recursive: true, force: true });
   }
 });

@@ -136,7 +136,7 @@ Already mid-conversation? `/worktree feature-auth` moves it — full history inc
 | `pi -w <name> [Pi args...]` | Create or reopen a task worktree and continue its latest session |
 | `pi --worktree <name> [Pi args...]` | Long form of `pi -w` |
 | `/worktree <name>` | Move the active conversation into a new or existing worktree |
-| `/worktree-list` | List managed worktrees with their clean or dirty state |
+| `/worktree-list` | List managed worktree names and branch names |
 | `/worktree-exit` | Move the active conversation back to the primary checkout |
 | `/worktree-remove <name>` | Remove an inactive, clean checkout and keep its branch |
 
