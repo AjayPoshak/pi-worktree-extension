@@ -82,7 +82,7 @@ test("registers commands and switches from the exact non-final active leaf using
   process.env.PI_CODING_AGENT_SESSION_DIR = fixture.sessions;
   try {
     const { commands, events } = registerExtension();
-    assert.deepEqual([...commands.keys()].sort(), ["worktree", "worktree-exit", "worktree-list", "worktree-remove"]);
+    assert.deepEqual([...commands.keys()].sort(), ["worktree", "worktree-exit", "worktree-list", "worktree-remove", "worktree-switch"]);
     assert.ok(events.has("session_start"));
     assert.ok(events.has("session_shutdown"));
 
@@ -149,6 +149,41 @@ test("registers commands and switches from the exact non-final active leaf using
     await commands.get("worktree-exit")?.handler("", exitCtx);
     assert.equal(exitCwd, fixture.repo);
     assert.deepEqual(await listLiveLeases(targetRepo.commonDir, "exact-leaf"), []);
+  } finally {
+    if (previousSessionDir === undefined) delete process.env.PI_CODING_AGENT_SESSION_DIR;
+    else process.env.PI_CODING_AGENT_SESSION_DIR = previousSessionDir;
+    await rm(fixture.root, { recursive: true, force: true });
+  }
+});
+
+test("worktree-switch enters only an existing managed worktree", { concurrency: false }, async () => {
+  const fixture = await makeRepository();
+  const previousSessionDir = process.env.PI_CODING_AGENT_SESSION_DIR;
+  process.env.PI_CODING_AGENT_SESSION_DIR = fixture.sessions;
+  try {
+    const target = await prepareWorktree(fixture.repo, "existing", { trustProject: false, home: fixture.home });
+    const { commands } = registerExtension();
+    const source = SessionManager.create(fixture.repo, fixture.sessions);
+    source.appendMessage({ role: "assistant", content: [] } as never);
+    const notifications: Array<{ message: string; level: string }> = [];
+    const replacementMessages: unknown[] = [];
+    let switchedFile = "";
+    const switchSession: ExtensionCommandContext["switchSession"] = async (path, options) => {
+      switchedFile = path;
+      const replacement = SessionManager.open(path);
+      await options?.withSession?.(replacementContext(replacement.getCwd(), replacement, replacementMessages) as never);
+      return { cancelled: false };
+    };
+    const ctx = makeContext(fixture.repo, source, notifications, switchSession, []);
+
+    await commands.get("worktree-switch")?.handler("existing", ctx);
+    assert.equal(SessionManager.open(switchedFile).getCwd(), target.record.path);
+    assert.equal(replacementMessages.length, 1);
+    assert.deepEqual(notifications, []);
+
+    await commands.get("worktree-switch")?.handler("missing", ctx);
+    assert.deepEqual(notifications.at(-1), { message: "No extension-managed worktree named missing", level: "error" });
+    assert.equal((await runGit(["worktree", "list", "--porcelain", "-z"], fixture.repo)).stdout.includes("/missing"), false);
   } finally {
     if (previousSessionDir === undefined) delete process.env.PI_CODING_AGENT_SESSION_DIR;
     else process.env.PI_CODING_AGENT_SESSION_DIR = previousSessionDir;

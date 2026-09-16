@@ -283,6 +283,13 @@ export async function findCurrentManaged(repo: RepositoryContext): Promise<Workt
   return undefined;
 }
 
+export async function findManaged(repo: RepositoryContext, name: string): Promise<WorktreeRecord> {
+  await validateName(name, repo.sourceRoot);
+  const record = await readRecord(repo.commonDir, name);
+  if (!record) throw new Error(`No extension-managed worktree named ${name}`);
+  return validateRecord(repo, record);
+}
+
 export async function listManaged(repo: RepositoryContext): Promise<{ valid: ManagedStatus[]; invalid: string[] }> {
   const valid: ManagedStatus[] = [];
   const invalid: string[] = [];
