@@ -4,6 +4,7 @@ import { createLease, removeLease } from "./leases.js";
 import { reportCmuxCwd, reportTerminalCwd } from "./terminal.js";
 import {
   findCurrentManaged,
+  findManaged,
   formatWorktreeIdentity,
   listManaged,
   prepareWorktree,
@@ -171,6 +172,40 @@ export default function piWorktreeExtension(pi: ExtensionAPI): void {
         if (prepared) {
           if (prepared.record.name !== sourceLeaseName) await removeLease(prepared.repo.commonDir, prepared.record.name).catch(() => undefined);
           if (prepared.created) await rollbackCreated(prepared);
+        }
+        ctx.ui.notify(errorMessage(error), "error");
+        return;
+      }
+      await execute();
+    },
+  });
+
+  pi.registerCommand("worktree-switch", {
+    description: "Switch to an existing managed Git worktree",
+    handler: async (args, ctx) => {
+      let execute: (() => Promise<void>);
+      let commonDir: string | undefined;
+      let sourceLeaseName: string | undefined;
+      let targetLeaseName: string | undefined;
+      let targetLeaseCreated = false;
+      try {
+        const name = args.trim();
+        if (!name) throw new Error("Usage: /worktree-switch <name>");
+        const source = await captureSource(ctx);
+        const repo = await resolveRepository(source.cwd);
+        commonDir = repo.commonDir;
+        sourceLeaseName = (await findCurrentManaged(repo))?.name;
+        const target = await findManaged(repo, name);
+        targetLeaseName = target.name;
+        await createLease(repo.commonDir, target.name);
+        targetLeaseCreated = true;
+        execute = await buildSessionTransition(ctx, source, target.path, "enter", {
+          ...(sourceLeaseName ? { sourceLeaseName } : {}),
+          targetLeaseName: target.name,
+        });
+      } catch (error) {
+        if (targetLeaseCreated && commonDir && targetLeaseName && targetLeaseName !== sourceLeaseName) {
+          await removeLease(commonDir, targetLeaseName).catch(() => undefined);
         }
         ctx.ui.notify(errorMessage(error), "error");
         return;
