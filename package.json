@@ -1,6 +1,6 @@
 {
   "name": "pi-worktree-extension",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "Managed Git worktrees and session transitions for Pi",
   "author": "Ajay Poshak",
   "repository": {

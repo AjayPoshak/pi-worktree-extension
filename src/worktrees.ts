@@ -31,6 +31,11 @@ export interface ManagedStatus {
   head: string;
 }
 
+/** Format the user-facing worktree identity without exposing its filesystem path. */
+export function formatWorktreeIdentity(record: Pick<WorktreeRecord, "name" | "branch">): string {
+  return `worktree: ${record.name}, branch: ${record.branch}`;
+}
+
 export function validateSlug(name: string): void {
   if (!SLUG.test(name)) {
     throw new Error("Worktree name must match [a-z0-9][a-z0-9-]{0,47}");

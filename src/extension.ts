@@ -4,6 +4,7 @@ import { createLease, removeLease } from "./leases.js";
 import { reportCmuxCwd, reportTerminalCwd } from "./terminal.js";
 import {
   findCurrentManaged,
+  formatWorktreeIdentity,
   listManaged,
   prepareWorktree,
   removeManaged,
@@ -182,11 +183,8 @@ export default function piWorktreeExtension(pi: ExtensionAPI): void {
     description: "List extension-managed Git worktrees",
     handler: async (_args, ctx) => runCommand(ctx, async () => {
       const listed = await listManaged(await resolveRepository(ctx.cwd));
-      const lines = listed.valid.map(({ record, clean, head }) =>
-        `${record.name}: ${clean ? "clean" : "dirty"}, HEAD ${head.slice(0, 12)}, branch ${record.branch}, path ${record.path}`,
-      );
-      lines.push(...listed.invalid.map((message) => `INVALID: ${message}`));
-      ctx.ui.notify(lines.length > 0 ? lines.join("\n") : "No extension-managed worktrees.", listed.invalid.length > 0 ? "warning" : "info");
+      const lines = listed.valid.map(({ record }) => formatWorktreeIdentity(record));
+      ctx.ui.notify(lines.length > 0 ? lines.join("\n") : "No extension-managed worktrees.", "info");
     }),
   });
 
@@ -214,7 +212,7 @@ export default function piWorktreeExtension(pi: ExtensionAPI): void {
       const name = args.trim();
       if (!name) throw new Error("Usage: /worktree-remove <name>");
       const removed = await removeManaged(await resolveRepository(ctx.cwd), name, ctx.cwd);
-      ctx.ui.notify(`Removed ${removed.path}. Branch ${removed.branch} was retained.`, "info");
+      ctx.ui.notify(`Removed ${formatWorktreeIdentity(removed)}. Branch was retained.`, "info");
     }),
   });
 
