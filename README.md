@@ -5,13 +5,34 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue?style=for-the-badge)](LICENSE)
 [![GitHub stars](https://img.shields.io/github/stars/AjayPoshak/pi-worktree-extension?style=for-the-badge&logo=github)](https://github.com/AjayPoshak/pi-worktree-extension/stargazers)
 
-**Stop making your agents wait in line.**
+**Run multiple Pi coding tasks in parallel — each with its own branch, files, and resumable conversation.**
+
+No shell configuration is required:
 
 ```bash
-pi -w fix-auth
+pi install npm:pi-worktree-extension
+cd ~/code/my-project
+pi
 ```
 
-One command. A dedicated branch, a dedicated checkout, a dedicated Pi conversation. Fire off `fix-auth`, `fix-pagination`, and `add-api-tests` in parallel from the same repo — no stashing, no collisions, no waiting your turn.
+Then create an isolated task from inside Pi:
+
+```text
+/worktree fix-auth
+```
+
+Start `fix-pagination` and `add-api-tests` in other terminals too — no stashing, no collisions, and no waiting your turn.
+
+## ✨ What makes Pi Worktree different
+
+Pi Worktree focuses on keeping the **Pi conversation** and the **Git worktree** together:
+
+- **Resume by task name** — reopen a worktree and continue its latest Pi session.
+- **Move existing conversations** — `/worktree fix-auth` carries the active conversation into isolation instead of making you start over.
+- **Optional shell launcher** — use `pi -w fix-auth` when you want to start isolated sessions directly from your terminal.
+- **Conservative lifecycle** — removal requires a clean, inactive checkout; branches are kept and nothing is force-deleted.
+
+It is intentionally focused on Pi session and worktree lifecycle rather than becoming a general Git or pull-request manager.
 
 ## 🤔 Why worktrees
 
