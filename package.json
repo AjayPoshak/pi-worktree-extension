@@ -1,7 +1,7 @@
 {
   "name": "pi-worktree-extension",
   "version": "2.0.2",
-  "description": "Managed Git worktrees and session transitions for Pi",
+  "description": "Run multiple Pi coding agents in parallel with isolated worktrees and resumable sessions",
   "author": "Ajay Poshak",
   "repository": {
     "type": "git",
@@ -15,7 +15,10 @@
     "pi-package",
     "pi",
     "git",
-    "worktree"
+    "worktree",
+    "parallel-agents",
+    "ai-coding-agent",
+    "sessions"
   ],
   "type": "module",
   "license": "MIT",
