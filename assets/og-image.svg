@@ -1,7 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
   <rect width="1200" height="630" fill="#101512"/>
   <rect x="80" y="80" width="1040" height="470" rx="28" fill="#18201a" stroke="#304034" stroke-width="3"/>
-  <text x="140" y="180" fill="#8ce99a" font-family="Arial, sans-serif" font-size="28" font-weight="700" letter-spacing="4">PI EXTENSION</text>
+  <text x="140" y="180" fill="#8ce99a" font-family="Arial, sans-serif" font-size="28" font-weight="700" letter-spacing="1">PI EXTENSION</text>
   <text x="140" y="285" fill="#edf5ed" font-family="Arial, sans-serif" font-size="72" font-weight="700">Pi Worktree</text>
   <text x="140" y="370" fill="#edf5ed" font-family="Arial, sans-serif" font-size="48" font-weight="700">Git worktrees for parallel Pi sessions</text>
   <text x="140" y="460" fill="#b7c4b8" font-family="Arial, sans-serif" font-size="30">Separate checkouts. Resumable sessions.</text>

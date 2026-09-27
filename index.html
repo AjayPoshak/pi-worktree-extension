@@ -54,8 +54,7 @@
     <section class="hero">
       <div class="eyebrow">Pi extension</div>
       <h1>Git worktrees for parallel Pi sessions</h1>
-      <p class="lead">Two Pi sessions in one checkout can overwrite each other's edits. Managing Git worktrees manually requires a branch, checkout, directory change, Pi restart, and cleanup.</p>
-      <p class="lead">Pi Worktree creates task worktrees and keeps each one associated with its Pi session. Each session works in a separate checkout.</p>
+      <p class="lead">Two Pi sessions in one checkout can overwrite each other's edits. Pi Worktree gives each task its own worktree, branch, and resumable session. One command, no manual setup.</p>
       <pre><code>pi install npm:pi-worktree-extension
 pi
 /worktree fix-auth</code></pre>
@@ -75,8 +74,7 @@ pi
       <div class="table-wrap"><table>
         <thead><tr><th>Task</th><th>Pi Worktree</th><th>Manual workflow</th></tr></thead>
         <tbody>
-          <tr><td>Start a task</td><td><code>/worktree fix-auth</code></td><td>Create a branch and worktree, <code>cd</code>, start Pi</td></tr>
-          <tr><td>Move a conversation</td><td><code>/worktree fix-auth</code></td><td>Start a new Pi session and restate the task</td></tr>
+          <tr><td>Create a task workspace or move the current conversation</td><td><code>/worktree fix-auth</code></td><td>Create a branch and worktree, <code>cd</code>, start Pi, and recreate context</td></tr>
           <tr><td>Return to the primary checkout</td><td><code>/worktree-exit</code></td><td>Find the checkout and restart or resume Pi</td></tr>
           <tr><td>Remove a checkout</td><td><code>/worktree-remove fix-auth</code></td><td>Check that it is clean and inactive, then remove it</td></tr>
         </tbody>
@@ -86,10 +84,6 @@ pi
     <section>
       <h2>Move an active conversation</h2>
       <p>Run <code>/worktree fix-auth</code> from an active Pi session. Pi moves the current conversation into the worktree, including its history.</p>
-      <div class="grid">
-        <article class="card"><h3>Resume a task</h3><p>Reopen a worktree and continue its latest Pi session.</p></article>
-        <article class="card"><h3>Safe removal</h3><p>Removal refuses dirty or active worktrees. Branches are kept.</p></article>
-      </div>
     </section>
 
     <section>
