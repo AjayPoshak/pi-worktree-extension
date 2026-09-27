@@ -67,6 +67,12 @@ pi
     </section>
 
     <section>
+      <h2>Why Git worktrees</h2>
+      <p>Git worktrees let one repository have multiple branches checked out at the same time. Each Pi session gets a separate directory, so its file changes do not collide with another session.</p>
+      <p>Worktrees isolate files, not permissions. Each Pi process still uses your account and has the same repository access.</p>
+    </section>
+
+    <section>
       <h2>Manual workflow and Pi Worktree</h2>
       <div class="table-wrap"><table>
         <thead><tr><th>Task</th><th>Pi Worktree</th><th>Manual workflow</th></tr></thead>
