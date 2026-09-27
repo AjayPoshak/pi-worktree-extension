@@ -1,0 +1,33 @@
+name: Show and tell
+about: Share how you use Pi Worktree
+title: "Show and tell: "
+labels: ["show-and-tell"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Share your workflow so others can learn from it. Screenshots, terminal recordings, and lessons learned are especially useful.
+  - type: textarea
+    id: workflow
+    attributes:
+      label: Workflow
+      description: What tasks or Pi sessions do you run in parallel?
+      placeholder: I use one worktree for...
+    validations:
+      required: true
+  - type: textarea
+    id: setup
+    attributes:
+      label: Setup
+      description: Which commands, shell setup, or project configuration do you use?
+      render: shell
+  - type: textarea
+    id: result
+    attributes:
+      label: Result
+      description: What did Pi Worktree make easier? What was difficult?
+  - type: textarea
+    id: improvements
+    attributes:
+      label: Improvements
+      description: What would make this workflow better?
