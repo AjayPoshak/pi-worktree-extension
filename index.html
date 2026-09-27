@@ -3,17 +3,21 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Run multiple Pi coding tasks in parallel with isolated Git worktrees and resumable sessions.">
+  <meta name="description" content="Run multiple AI coding agents in parallel with Pi, using isolated Git worktrees and resumable sessions.">
+  <script type="application/ld+json">
+    {"@context":"https://schema.org","@type":"SoftwareApplication","name":"Pi Worktree","description":"Run multiple AI coding agents in parallel with Pi, using isolated Git worktrees and resumable sessions.","applicationCategory":"DeveloperApplication","operatingSystem":"macOS, Linux","license":"https://opensource.org/licenses/MIT","author":{"@type":"Person","name":"Ajay Poshak"},"offers":{"@type":"Offer","price":"0"},"url":"https://ajayposhak.github.io/pi-worktree-extension/"}
+  </script>
   <link rel="canonical" href="https://ajayposhak.github.io/pi-worktree-extension/">
   <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://ajayposhak.github.io/pi-worktree-extension/">
   <meta property="og:title" content="Pi Worktree: Git worktrees for Pi">
-  <meta property="og:description" content="Run multiple Pi coding tasks in parallel with isolated Git worktrees and resumable sessions.">
+  <meta property="og:description" content="Run multiple AI coding agents in parallel with Pi, using isolated Git worktrees and resumable sessions.">
   <meta property="og:image" content="https://ajayposhak.github.io/pi-worktree-extension/assets/og-image.png">
+  <meta property="og:image:alt" content="Pi Worktree, Git worktrees for parallel Pi sessions">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="Pi Worktree: Git worktrees for Pi">
-  <meta name="twitter:description" content="Run multiple Pi coding tasks in parallel with isolated Git worktrees and resumable sessions.">
+  <meta name="twitter:description" content="Run multiple AI coding agents in parallel with Pi, using isolated Git worktrees and resumable sessions.">
   <meta name="twitter:image" content="https://ajayposhak.github.io/pi-worktree-extension/assets/og-image.png">
   <title>Pi Worktree: Git worktrees for Pi</title>
   <style>
@@ -33,6 +37,7 @@
     .actions, .trust { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 24px; }
     .button { display: inline-block; padding: 10px 16px; border: 1px solid var(--accent); border-radius: 8px; color: var(--bg); background: var(--accent); font-weight: 700; text-decoration: none; }
     .button.secondary { color: var(--text); background: transparent; border-color: var(--line); }
+    .external { margin-left: .25em; }
     .trust { align-items: center; color: var(--muted); font-size: .9rem; }
     .trust img { height: 20px; }
     table { width: 100%; border-collapse: collapse; min-width: 650px; }
@@ -51,19 +56,25 @@
     <section class="hero">
       <div class="eyebrow">Pi extension</div>
       <h1>Git worktrees for parallel Pi sessions</h1>
-      <p class="lead">Two Pi sessions in one checkout can overwrite each other's edits. Pi Worktree gives each task its own worktree, branch, and resumable session. One command, no manual setup.</p>
+      <p class="lead">Two AI coding agents in one checkout can overwrite each other's edits. Pi Worktree gives each task its own worktree, branch, and resumable session. One command, no manual setup.</p>
       <pre><code>pi install npm:pi-worktree-extension
 pi
 /worktree fix-auth</code></pre>
       <div class="actions">
-        <a class="button" href="https://www.npmjs.com/package/pi-worktree-extension">Install from npm</a>
-        <a class="button secondary" href="https://github.com/AjayPoshak/pi-worktree-extension">View on GitHub</a>
+        <a class="button" href="https://www.npmjs.com/package/pi-worktree-extension" target="_blank" rel="noopener">Install from npm <span class="external" aria-hidden="true">↗</span></a>
+        <a class="button secondary" href="https://github.com/AjayPoshak/pi-worktree-extension" target="_blank" rel="noopener">View on GitHub <span class="external" aria-hidden="true">↗</span></a>
       </div>
       <div class="trust">
         <a href="https://www.npmjs.com/package/pi-worktree-extension"><img src="https://img.shields.io/npm/v/pi-worktree-extension?label=npm" alt="npm version"></a>
         <a href="https://github.com/AjayPoshak/pi-worktree-extension/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT license"></a>
         <span>Tested with Pi 0.83.0</span>
       </div>
+    </section>
+
+    <section>
+      <h2>Why Git worktrees</h2>
+      <p>Git worktrees let one repository have multiple branches checked out at the same time. Each Pi session gets a separate directory, so its file changes do not collide with another session.</p>
+      <p>Worktrees isolate files, not permissions. Each Pi process still uses your account and has the same repository access.</p>
     </section>
 
     <section>
@@ -107,13 +118,13 @@ pi
 
     <section>
       <h2>Safety</h2>
-      <p>Removal refuses dirty or active checkouts. Pi Worktree keeps branches and never force-deletes them.</p>
+      <p>Removal refuses dirty or active checkouts. Pi Worktree never deletes branches. There is no force mode.</p>
     </section>
 
     <footer>
       <a href="https://github.com/AjayPoshak/pi-worktree-extension#readme">Full documentation</a>
       · <a href="https://github.com/AjayPoshak/pi-worktree-extension/discussions">Questions and workflow examples</a>
-      · <a href="https://pi.dev/packages/pi-worktree-extension">Pi package page</a>
+      · <a href="https://pi.dev/packages/pi-worktree-extension" target="_blank" rel="noopener">Pi package page <span class="external" aria-hidden="true">↗</span></a>
     </footer>
   </main>
 </body>
