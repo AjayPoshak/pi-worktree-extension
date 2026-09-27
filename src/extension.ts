@@ -1,5 +1,6 @@
-import { rm, stat } from "node:fs/promises";
-import { SessionManager, type ExtensionAPI, type ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
+import { rm, stat, writeFile } from "node:fs/promises";
+import { dirname, resolve } from "node:path";
+import { getAgentDir, SessionManager, type ExtensionAPI, type ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
 import { createLease, removeLease } from "./leases.js";
 import { reportCmuxCwd, reportTerminalCwd } from "./terminal.js";
 import {
@@ -34,6 +35,10 @@ function setActiveLeaseState(state: ActiveLeaseState | undefined): void {
 
 interface SourceState {
   file: string;
+  /** Present when Pi has not written the source JSONL yet (no assistant response). */
+  unflushed?: { entries: unknown[] };
+  /** Custom session directory, or undefined when the source uses Pi's per-cwd default. */
+  sessionDir?: string;
   leaf: string | null;
   cwd: string;
 }
@@ -42,14 +47,46 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
+/** The active --session-dir/PI_CODING_AGENT_SESSION_DIR, or undefined for Pi's per-cwd default. */
+function customSessionDir(ctx: ExtensionCommandContext): string | undefined {
+  const dir = ctx.sessionManager.getSessionDir();
+  // Pi's default layout keeps each cwd's sessions in <agentDir>/sessions/--<encoded cwd>--/.
+  return dirname(resolve(dir)) === resolve(getAgentDir(), "sessions") ? undefined : dir;
+}
+
 /** Capture the source exactly once after the runtime is idle. */
 async function captureSource(ctx: ExtensionCommandContext): Promise<SourceState> {
   await ctx.waitForIdle();
   const file = ctx.sessionManager.getSessionFile();
   if (!file) throw new Error("A persisted session is required; save or start a persistent Pi session first");
+  const manager = ctx.sessionManager;
+  const sessionDir = customSessionDir(ctx);
   const fileStat = await stat(file).catch(() => undefined);
-  if (!fileStat?.isFile()) throw new Error(`The current session file does not exist: ${file}`);
-  return { file, leaf: ctx.sessionManager.getLeafId(), cwd: ctx.cwd };
+  // Pi defers writing a new session until the first assistant response, so a brand-new
+  // session exists only in memory. Clone its in-memory entries instead of the file.
+  const unflushed = fileStat === undefined ? { entries: manager.getEntries() } : undefined;
+  if (fileStat && !fileStat.isFile()) throw new Error(`The current session file is not a regular file: ${file}`);
+  return {
+    file,
+    ...(unflushed ? { unflushed } : {}),
+    ...(sessionDir ? { sessionDir } : {}),
+    leaf: manager.getLeafId(),
+    cwd: ctx.cwd,
+  };
+}
+
+/** Write a forked session file for targetCwd, mirroring SessionManager.forkFrom. */
+async function forkSession(source: SourceState, targetCwd: string): Promise<SessionManager> {
+  if (!source.unflushed) return SessionManager.forkFrom(source.file, targetCwd, source.sessionDir);
+  // Let Pi allocate the session id, directory, and file name exactly as it would for targetCwd.
+  const allocated = SessionManager.create(targetCwd, source.sessionDir);
+  const targetFile = allocated.getSessionFile();
+  if (!targetFile) throw new Error("Pi did not allocate a target session file");
+  // The source file is never written once the runtime switches, so no parentSession link.
+  const header = allocated.getHeader();
+  const lines = [header, ...source.unflushed.entries].map((entry) => `${JSON.stringify(entry)}\n`).join("");
+  await writeFile(targetFile, lines, { flag: "wx" });
+  return SessionManager.open(targetFile, allocated.getSessionDir(), targetCwd);
 }
 
 async function removeTargetSession(targetFile: string): Promise<string | undefined> {
@@ -69,7 +106,7 @@ async function buildSessionTransition(
   kind: "enter" | "exit",
   options: { prepared?: PreparedWorktree; sourceLeaseName?: string; targetLeaseName?: string } = {},
 ): Promise<() => Promise<void>> {
-  const targetManager = SessionManager.forkFrom(source.file, targetCwd);
+  const targetManager = await forkSession(source, targetCwd);
   if (source.leaf === null) targetManager.resetLeaf();
   else targetManager.branch(source.leaf);
   targetManager.appendCustomEntry(TRANSITION_TYPE, {

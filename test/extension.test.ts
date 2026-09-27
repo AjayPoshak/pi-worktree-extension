@@ -110,6 +110,9 @@ test("registers commands and switches from the exact non-final active leaf using
     assert.equal(transition?.type, "custom");
     assert.equal(transition?.parentId, selectedLeaf);
     assert.equal(target.getCwd(), join(fixture.repo, ".pi", "worktrees", "exact-leaf"));
+    // The clone stays in the custom session directory so `pi -w` (pi --continue) resumes it.
+    assert.equal(join(switchedFile, ".."), fixture.sessions);
+    assert.equal(SessionManager.continueRecent(target.getCwd(), fixture.sessions).getSessionFile(), switchedFile);
     assert.equal(replacementMessages.length, 1);
     assert.match(JSON.stringify(replacementMessages[0]), /Revalidate all filesystem paths/);
     assert.equal(confirms.length, 0);
@@ -180,6 +183,18 @@ test("worktree-switch enters only an existing managed worktree", { concurrency: 
     assert.equal(SessionManager.open(switchedFile).getCwd(), target.record.path);
     assert.equal(replacementMessages.length, 1);
     assert.deepEqual(notifications, []);
+
+    // Corrupted metadata: foo.json holds the valid record for "existing". Never enter it as foo.
+    const records = join(fixture.repo, ".git", "pi-worktree", "records");
+    await writeFile(join(records, "foo.json"), await readFile(join(records, "existing.json"), "utf8"));
+    switchedFile = "";
+    await commands.get("worktree-switch")?.handler("foo", ctx);
+    assert.equal(switchedFile, "");
+    const mismatch = (notifications as Array<{ message: string; level: string }>).at(-1);
+    assert.equal(mismatch?.level, "error");
+    assert.match(mismatch?.message ?? "", /record name "existing" does not match "foo"/);
+    assert.deepEqual(await listLiveLeases((await resolveRepository(fixture.repo)).commonDir, "foo"), []);
+    await unlink(join(records, "foo.json"));
 
     await commands.get("worktree-switch")?.handler("missing", ctx);
     assert.deepEqual(notifications.at(-1), { message: "No extension-managed worktree named missing", level: "error" });
@@ -273,6 +288,50 @@ test("cancelled switch reports the exact target session deletion failure and Git
   } finally {
     if (previousSessionDir === undefined) delete process.env.PI_CODING_AGENT_SESSION_DIR;
     else process.env.PI_CODING_AGENT_SESSION_DIR = previousSessionDir;
+    await rm(fixture.root, { recursive: true, force: true });
+  }
+});
+
+test("worktree works from a brand-new session before Pi writes its file", { concurrency: false }, async () => {
+  const fixture = await makeRepository();
+  const previousAgentDir = process.env.PI_CODING_AGENT_DIR;
+  process.env.PI_CODING_AGENT_DIR = join(fixture.home, "agent");
+  try {
+    const { commands } = registerExtension();
+    const switchTo = (switched: string[]): ExtensionCommandContext["switchSession"] => async (path, options) => {
+      switched.push(path);
+      const replacement = SessionManager.open(path);
+      await options?.withSession?.(replacementContext(replacement.getCwd(), replacement, []) as never);
+      return { cancelled: false };
+    };
+
+    // Custom session directory: only a user message exists, so nothing is on disk yet.
+    const custom = SessionManager.create(fixture.repo, fixture.sessions);
+    const userEntry = custom.appendMessage({ role: "user", content: "hello", timestamp: 0 } as never);
+    await assert.rejects(stat(custom.getSessionFile()!), /ENOENT/);
+    const notifications: Array<{ message: string; level: string }> = [];
+    const customSwitched: string[] = [];
+    await commands.get("worktree")?.handler("fresh", makeContext(fixture.repo, custom, notifications, switchTo(customSwitched), []));
+    assert.deepEqual(notifications.filter((n) => n.level === "error"), []);
+    const [customFile] = customSwitched;
+    assert.ok(customFile);
+    assert.equal(join(customFile, ".."), fixture.sessions);
+    const customTarget = SessionManager.continueRecent(join(fixture.repo, ".pi", "worktrees", "fresh"), fixture.sessions);
+    assert.equal(customTarget.getSessionFile(), customFile);
+    assert.equal(customTarget.getEntry(userEntry)?.type, "message");
+    assert.equal(customTarget.getEntries().at(-1)?.parentId, userEntry);
+
+    // Default per-cwd session directory: an empty brand-new session.
+    const fresh = SessionManager.create(fixture.repo);
+    const defaultSwitched: string[] = [];
+    await commands.get("worktree")?.handler("fresh-default", makeContext(fixture.repo, fresh, notifications, switchTo(defaultSwitched), []));
+    assert.deepEqual(notifications.filter((n) => n.level === "error"), []);
+    const defaultCwd = join(fixture.repo, ".pi", "worktrees", "fresh-default");
+    assert.equal(SessionManager.continueRecent(defaultCwd).getSessionFile(), defaultSwitched[0]);
+    assert.ok(defaultSwitched[0]?.startsWith(join(fixture.home, "agent", "sessions")));
+  } finally {
+    if (previousAgentDir === undefined) delete process.env.PI_CODING_AGENT_DIR;
+    else process.env.PI_CODING_AGENT_DIR = previousAgentDir;
     await rm(fixture.root, { recursive: true, force: true });
   }
 });

@@ -41,7 +41,10 @@ export async function readRecord(commonDir: string, name: string): Promise<Workt
   const path = recordPath(commonDir, name);
   try {
     if ((await lstat(path)).isSymbolicLink()) throw new Error(`Metadata record must not be a symlink: ${path}`);
-    return parseRecord(await readFile(path, "utf8"), path);
+    const record = parseRecord(await readFile(path, "utf8"), path);
+    // A record is addressed by its filename; a mismatched name is corrupt or tampered metadata.
+    if (record.name !== name) throw new Error(`Invalid ${path}: record name ${JSON.stringify(record.name)} does not match ${JSON.stringify(name)}`);
+    return record;
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === "ENOENT") return undefined;
     throw error;
