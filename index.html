@@ -35,9 +35,6 @@
     .button.secondary { color: var(--text); background: transparent; border-color: var(--line); }
     .trust { align-items: center; color: var(--muted); font-size: .9rem; }
     .trust img { height: 20px; }
-    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 16px; }
-    .card { padding: 20px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; }
-    .card h3 { margin-top: 0; }
     table { width: 100%; border-collapse: collapse; min-width: 650px; }
     th, td { padding: 12px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
     th { color: var(--accent); }
@@ -106,6 +103,11 @@ pi
         <dt>/worktree-remove fix-auth</dt><dd>Remove a clean, inactive checkout.</dd>
       </dl>
       <p>The optional <a href="https://github.com/AjayPoshak/pi-worktree-extension#optional-enable-pi--w-from-the-shell"><code>pi -w fix-auth</code> shell launcher</a> starts or resumes a task directly from a terminal.</p>
+    </section>
+
+    <section>
+      <h2>Safety</h2>
+      <p>Removal refuses dirty or active checkouts. Pi Worktree keeps branches and never force-deletes them.</p>
     </section>
 
     <footer>
