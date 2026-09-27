@@ -3,7 +3,18 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Run multiple Pi coding agents in parallel with isolated Git worktrees and resumable sessions.">
+  <meta name="description" content="Run multiple Pi coding tasks in parallel with isolated Git worktrees and resumable sessions.">
+  <link rel="canonical" href="https://ajayposhak.github.io/pi-worktree-extension/">
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://ajayposhak.github.io/pi-worktree-extension/">
+  <meta property="og:title" content="Pi Worktree — Parallel Pi tasks, isolated safely">
+  <meta property="og:description" content="Run multiple Pi coding tasks in parallel with isolated Git worktrees and resumable sessions.">
+  <meta property="og:image" content="https://ajayposhak.github.io/pi-worktree-extension/assets/og-image.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Pi Worktree — Parallel Pi tasks, isolated safely">
+  <meta name="twitter:description" content="Run multiple Pi coding tasks in parallel with isolated Git worktrees and resumable sessions.">
+  <meta name="twitter:image" content="https://ajayposhak.github.io/pi-worktree-extension/assets/og-image.png">
   <title>Pi Worktree — Parallel Pi tasks, isolated safely</title>
   <style>
     :root { color-scheme: dark; --bg: #101512; --panel: #18201a; --text: #edf5ed; --muted: #b7c4b8; --accent: #8ce99a; --line: #304034; }
@@ -11,19 +22,31 @@
     body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.6 system-ui, sans-serif; }
     main { width: min(900px, calc(100% - 40px)); margin: auto; }
     a { color: var(--accent); }
-    .hero { padding: 96px 0 56px; }
+    .hero { padding: 96px 0 48px; }
     .eyebrow { color: var(--accent); font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
     h1 { max-width: 760px; margin: 12px 0; font-size: clamp(2.5rem, 7vw, 4.8rem); line-height: 1.04; letter-spacing: -.05em; }
-    h2 { margin-top: 56px; font-size: 1.7rem; }
-    .lead { max-width: 670px; color: var(--muted); font-size: 1.2rem; }
-    pre { overflow-x: auto; padding: 20px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; color: var(--accent); }
-    .actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 24px; }
+    h2 { margin-top: 64px; font-size: 1.7rem; }
+    .lead { max-width: 700px; color: var(--muted); font-size: 1.2rem; }
+    pre, .table-wrap { overflow-x: auto; padding: 20px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; }
+    pre { color: var(--accent); }
+    code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .actions, .trust { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 24px; }
     .button { display: inline-block; padding: 10px 16px; border: 1px solid var(--accent); border-radius: 8px; color: var(--bg); background: var(--accent); font-weight: 700; text-decoration: none; }
     .button.secondary { color: var(--text); background: transparent; border-color: var(--line); }
+    .trust { align-items: center; color: var(--muted); font-size: .9rem; }
+    .trust img { height: 20px; }
     .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 16px; }
     .card { padding: 20px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; }
     .card h3 { margin-top: 0; }
+    table { width: 100%; border-collapse: collapse; min-width: 650px; }
+    th, td { padding: 12px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+    th { color: var(--accent); }
+    tr:last-child td { border: 0; }
+    dl { display: grid; grid-template-columns: max-content 1fr; gap: 10px 24px; padding: 20px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; }
+    dt { color: var(--accent); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+    dd { margin: 0; }
     footer { padding: 64px 0 32px; color: var(--muted); }
+    @media (max-width: 600px) { .hero { padding-top: 64px; } dl { grid-template-columns: 1fr; gap: 0; } dd { margin: 0 0 16px; } }
   </style>
 </head>
 <body>
@@ -31,7 +54,8 @@
     <section class="hero">
       <div class="eyebrow">Pi extension</div>
       <h1>Parallel Pi tasks. Isolated safely.</h1>
-      <p class="lead">Pi Worktree gives every coding task its own Git branch, checkout, and resumable Pi conversation—so agents never overwrite each other.</p>
+      <p class="lead">Two agents in one checkout overwrite each other’s edits. Raw Git worktrees mean creating a branch and checkout, changing directories, relaunching Pi, tracking tasks, and cleaning up by hand.</p>
+      <p class="lead">Pi Worktree gives each task its own Git branch, checkout, and resumable Pi conversation—so each agent edits its own checkout.</p>
       <pre><code>pi install npm:pi-worktree-extension
 pi
 /worktree fix-auth</code></pre>
@@ -39,35 +63,60 @@ pi
         <a class="button" href="https://www.npmjs.com/package/pi-worktree-extension">Install from npm</a>
         <a class="button secondary" href="https://github.com/AjayPoshak/pi-worktree-extension">View on GitHub</a>
       </div>
+      <div class="trust">
+        <a href="https://www.npmjs.com/package/pi-worktree-extension"><img src="https://img.shields.io/npm/v/pi-worktree-extension?label=npm" alt="npm version"></a>
+        <a href="https://github.com/AjayPoshak/pi-worktree-extension/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT license"></a>
+        <span>Tested with Pi 0.83.0</span>
+      </div>
+    </section>
+
+    <section>
+      <h2>Worktrees without the busywork</h2>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Task</th><th>Pi Worktree</th><th>Manual workflow</th></tr></thead>
+        <tbody>
+          <tr><td>Start an isolated task</td><td><code>/worktree fix-auth</code></td><td>Create branch, add worktree, <code>cd</code>, then relaunch Pi</td></tr>
+          <tr><td>Move the active conversation</td><td><code>/worktree fix-auth</code></td><td>Start a new session and recreate context by hand</td></tr>
+          <tr><td>Return to the primary checkout</td><td><code>/worktree-exit</code></td><td>Find it and relaunch or resume Pi</td></tr>
+          <tr><td>Remove a finished checkout</td><td><code>/worktree-remove fix-auth</code></td><td>Verify it is clean and inactive, then remove it</td></tr>
+        </tbody>
+      </table></div>
+    </section>
+
+    <section>
+      <h2>Already mid-conversation? Move it, history included.</h2>
+      <p>Use <code>/worktree fix-auth</code> from an active Pi session to move the conversation into an isolated checkout. The task keeps its context; you do not need to start a new chat or restate the work.</p>
+      <div class="grid">
+        <article class="card"><h3>Resume by task</h3><p>Reopen a worktree and continue its latest Pi session.</p></article>
+        <article class="card"><h3>Conservative cleanup</h3><p>Removal refuses dirty or active worktrees and never deletes branches.</p></article>
+      </div>
     </section>
 
     <section>
       <h2>One task, one workspace</h2>
-      <pre><code>main checkout      review and integrate work
-fix-auth           investigate authentication
-add-api-tests      add regression coverage
-refactor-cache     explore a larger change</code></pre>
-      <p>Each worktree has separate files and its own branch. Continue a task later without rebuilding its Pi context.</p>
-    </section>
-
-    <section class="grid">
-      <article class="card"><h3>Resume by task</h3><p>Reopen a worktree and continue its latest Pi session.</p></article>
-      <article class="card"><h3>Move context</h3><p>Move an active Pi conversation into an isolated worktree.</p></article>
-      <article class="card"><h3>Stay safe</h3><p>Cleanup refuses dirty or active worktrees and never deletes branches.</p></article>
+      <pre><code>my-project/
+├── primary checkout                 main
+└── .pi/worktrees/
+    ├── fix-auth/                    worktree-fix-auth
+    ├── add-api-tests/               worktree-add-api-tests
+    └── refactor-cache/              worktree-refactor-cache</code></pre>
     </section>
 
     <section>
       <h2>Commands</h2>
-      <pre><code>/worktree fix-auth        create or enter a task workspace
-/worktree-switch fix-auth switch to an existing workspace
-/worktree-list            see managed worktrees
-/worktree-exit            return to the primary checkout
-/worktree-remove fix-auth remove a clean, inactive checkout</code></pre>
-      <p>The optional <code>pi -w fix-auth</code> shell launcher starts or resumes a task directly from a terminal.</p>
+      <dl>
+        <dt>/worktree fix-auth</dt><dd>Create or enter a task workspace.</dd>
+        <dt>/worktree-switch fix-auth</dt><dd>Switch to an existing workspace.</dd>
+        <dt>/worktree-list</dt><dd>See managed worktrees.</dd>
+        <dt>/worktree-exit</dt><dd>Return to the primary checkout.</dd>
+        <dt>/worktree-remove fix-auth</dt><dd>Remove a clean, inactive checkout.</dd>
+      </dl>
+      <p>The optional <a href="https://github.com/AjayPoshak/pi-worktree-extension#optional-enable-pi--w-from-the-shell"><code>pi -w fix-auth</code> shell launcher</a> starts or resumes a task directly from a terminal.</p>
     </section>
 
     <footer>
-      <a href="https://github.com/AjayPoshak/pi-worktree-extension/discussions">Questions and workflow examples</a>
+      <a href="https://github.com/AjayPoshak/pi-worktree-extension#readme">Full documentation</a>
+      · <a href="https://github.com/AjayPoshak/pi-worktree-extension/discussions">Questions and workflow examples</a>
       · <a href="https://pi.dev/packages/pi-worktree-extension">Pi package page</a>
     </footer>
   </main>
