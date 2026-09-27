@@ -110,5 +110,8 @@ test("metadata records round-trip atomically and reject malformed data", async (
     assert.deepEqual(await readRecord(common, "task"), record);
     assert.match(await readFile(join(common, "pi-worktree", "records", "task.json"), "utf8"), /worktree-task/);
     assert.throws(() => parseRecord('{"version":1}', "test"), /malformed/);
+    // A valid record stored under another name's filename must not be accepted.
+    await writeFile(join(common, "pi-worktree", "records", "other.json"), `${JSON.stringify(record)}\n`);
+    await assert.rejects(readRecord(common, "other"), /record name "task" does not match "other"/);
   } finally { await rm(common, { recursive: true, force: true }); }
 });
