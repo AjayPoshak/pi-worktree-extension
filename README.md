@@ -7,6 +7,8 @@
 
 **Run multiple Pi coding tasks in parallel — each with its own branch, files, and resumable conversation.**
 
+[Project site](https://ajayposhak.github.io/pi-worktree-extension/) · [npm](https://www.npmjs.com/package/pi-worktree-extension)
+
 No shell configuration is required:
 
 ```bash
@@ -186,6 +188,10 @@ pi remove npm:pi-worktree-extension
 ```
 
 Then drop the dispatcher function and the `PI_WORKTREE_REAL_PI` / `PI_WORKTREE_LAUNCHER` variables from your shell config. Uninstalling never touches existing worktrees or `worktree-*` branches.
+
+## 💬 Community
+
+Share a workflow, ask a question, or suggest an improvement in [GitHub Discussions](https://github.com/AjayPoshak/pi-worktree-extension/discussions). Have a useful setup to show others? [Open a show-and-tell](https://github.com/AjayPoshak/pi-worktree-extension/issues/new?template=show-and-tell.yml).
 
 ## 🤝 Contributing
 
