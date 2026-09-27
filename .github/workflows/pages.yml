@@ -28,6 +28,7 @@ jobs:
           cp index.html _site/index.html
           cp -R assets _site/assets
           cp google*.html _site/
+          cp robots.txt sitemap.xml _site/
       - uses: actions/upload-pages-artifact@v3
         with:
           path: _site
