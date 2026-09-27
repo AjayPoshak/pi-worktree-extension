@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://ajayposhak.github.io/pi-worktree-extension/sitemap.xml
