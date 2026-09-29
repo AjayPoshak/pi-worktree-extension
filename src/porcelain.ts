@@ -8,9 +8,10 @@ export interface WorktreePorcelainEntry {
   prunable?: string;
 }
 
-/** Parse `git worktree list --porcelain -z` without line or whitespace assumptions. */
+/** Parse `git worktree list --porcelain` output, handling both `-z` (NUL-delimited) and non-`-z` (newline-delimited) forms. */
 export function parseWorktreePorcelain(input: string): WorktreePorcelainEntry[] {
-  const tokens = input.split("\0");
+  // Split on both NUL (from -z) and newlines (from non -z) so either form works.
+  const tokens = input.split(/\0|\r?\n/);
   const entries: WorktreePorcelainEntry[] = [];
   let current: WorktreePorcelainEntry | undefined;
 
