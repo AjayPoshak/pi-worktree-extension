@@ -169,7 +169,7 @@ Names match `[a-z0-9][a-z0-9-]{0,47}` — e.g. `fix-auth`, `issue-123`, `prototy
 ## 🛡️ Safety by default
 
 - New worktrees branch from local `origin/HEAD` (never fetched — falls back to `HEAD` with a warning if `origin/HEAD` isn't available). Prefer `HEAD` instead? Set `{ "base": "head" }` in `~/.pi/agent/worktree.json` or `<repository>/.pi/worktree.json`.
-- Creating a worktree requires a clean source checkout. Removal is blocked by any tracked, untracked, or ignored files in the target, or while another Pi process is using it.
+- Creating a worktree requires a clean source checkout. Removal is blocked by tracked changes, non-ignored untracked files, or while another Pi process is using it. Ignored files are deleted with the checkout, matching `git worktree remove`.
 - Dirty worktrees can always be reopened — unfinished work is never stranded.
 - Quitting Pi never removes a checkout. `/worktree-remove` never deletes the branch. There is no force mode.
 

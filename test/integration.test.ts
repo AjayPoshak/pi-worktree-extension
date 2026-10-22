@@ -71,7 +71,7 @@ test("creation rejects a dirty source but reuse permits a dirty target", async (
     await writeFile(join(created.record.path, "change.txt"), "keep me\n");
     const reused = await prepareWorktree(fixture.repo, "reusable", { trustProject: false, home: fixture.home });
     assert.equal(reused.created, false);
-    await assert.rejects(removeManaged(await resolveRepository(fixture.repo), "reusable", fixture.repo), /has changes/);
+    await assert.rejects(removeManaged(await resolveRepository(fixture.repo), "reusable", fixture.repo), /tracked changes or untracked files/);
   } finally { await rm(fixture.root, { recursive: true, force: true }); }
 });
 
@@ -137,21 +137,24 @@ test("startup launcher creates, reuses, changes cwd, and passes Pi arguments", a
   } finally { await rm(fixture.root, { recursive: true, force: true }); }
 });
 
-test("source ignored files do not block creation, but target ignored files block destructive cleanup", async () => {
+test("ignored files match Git worktree removal behavior", async () => {
   const fixture = await makeRepository();
+  const options = { trustProject: false, home: fixture.home };
   try {
     await writeFile(join(fixture.repo, ".gitignore"), "*.ignored\n");
     await runGit(["add", ".gitignore"], fixture.repo);
     await runGit(["commit", "-m", "ignore fixture"], fixture.repo);
     await writeFile(join(fixture.repo, "source.ignored"), "local source setup\n");
 
-    const prepared = await prepareWorktree(fixture.repo, "ignored-target", { trustProject: false, home: fixture.home });
-    await writeFile(join(prepared.record.path, "target.ignored"), "must survive\n");
-    await assert.rejects(removeManaged(await resolveRepository(fixture.repo), "ignored-target", fixture.repo), /ignored files/);
-    const rolledBack = await rollbackCreated(prepared);
-    assert.equal(rolledBack.removed, false);
-    assert.match(rolledBack.reason ?? "", /ignored files count as changes/);
-    assert.equal(await readFile(join(prepared.record.path, "target.ignored"), "utf8"), "must survive\n");
+    const removable = await prepareWorktree(fixture.repo, "ignored-target", options);
+    await writeFile(join(removable.record.path, "target.ignored"), "generated output\n");
+    await removeManaged(await resolveRepository(fixture.repo), "ignored-target", fixture.repo);
+    await assert.rejects(readFile(join(removable.record.path, "target.ignored")), /ENOENT/);
+
+    const rollback = await prepareWorktree(fixture.repo, "ignored-rollback", options);
+    await writeFile(join(rollback.record.path, "target.ignored"), "generated output\n");
+    assert.equal((await rollbackCreated(rollback)).removed, true);
+    await assert.rejects(readFile(join(rollback.record.path, "target.ignored")), /ENOENT/);
   } finally { await rm(fixture.root, { recursive: true, force: true }); }
 });
 
@@ -209,13 +212,10 @@ test("managed layout rejects symlinks, tracked paths, case/branch collisions, an
 test("prepare failure preserves checkout and branch when safe removal cannot be proven", async () => {
   const fixture = await makeRepository();
   try {
-    await writeFile(join(fixture.repo, ".gitignore"), "*.ignored\n");
-    await runGit(["add", ".gitignore"], fixture.repo);
-    await runGit(["commit", "-m", "ignore fixture"], fixture.repo);
     const repo = await resolveRepository(fixture.repo);
     await mkdir(recordsDirectory(repo.commonDir), { recursive: true });
     const hook = join(fixture.repo, ".git", "hooks", "post-checkout");
-    await writeFile(hook, `#!/usr/bin/env bash\ntouch "$PWD/recovery.ignored"\nrmdir ${JSON.stringify(recordsDirectory(repo.commonDir))}\nprintf 'blocks metadata directory\\n' > ${JSON.stringify(recordsDirectory(repo.commonDir))}\n`);
+    await writeFile(hook, `#!/usr/bin/env bash\ntouch "$PWD/recovery.txt"\nrmdir ${JSON.stringify(recordsDirectory(repo.commonDir))}\nprintf 'blocks metadata directory\\n' > ${JSON.stringify(recordsDirectory(repo.commonDir))}\n`);
     await chmod(hook, 0o755);
 
     await assert.rejects(
@@ -224,7 +224,7 @@ test("prepare failure preserves checkout and branch when safe removal cannot be 
     );
     const target = join(fixture.repo, ".pi", "worktrees", "cleanup-failure");
     assert.equal((await lstat(target)).isDirectory(), true);
-    assert.equal(await readFile(join(target, "recovery.ignored"), "utf8"), "");
+    assert.equal(await readFile(join(target, "recovery.txt"), "utf8"), "");
     assert.equal(await runGit(["show-ref", "--verify", "refs/heads/worktree-cleanup-failure"], fixture.repo).then(() => true), true);
   } finally { await rm(fixture.root, { recursive: true, force: true }); }
 });
