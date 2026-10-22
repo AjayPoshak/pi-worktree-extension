@@ -162,10 +162,9 @@ async function trackedStatusClean(cwd: string): Promise<boolean> {
   return (await runGit(["status", "--porcelain=v1", "-z", "--untracked-files=all"], cwd)).stdout.length === 0;
 }
 
-/** Destructive cleanup must also preserve ignored, untracked files. */
+/** Match Git's clean-worktree check: ignored files do not block removal. */
 async function cleanStatus(cwd: string): Promise<boolean> {
-  if (!(await trackedStatusClean(cwd))) return false;
-  return (await runGit(["ls-files", "--others", "--ignored", "--exclude-standard", "-z"], cwd)).stdout.length === 0;
+  return trackedStatusClean(cwd);
 }
 
 export interface PrepareOptions {
@@ -230,7 +229,7 @@ export async function prepareWorktree(cwd: string, name: string, options: Prepar
       if (!worktreeAdded) throw originalError;
       let removalError: unknown;
       try {
-        if (!(await cleanStatus(target))) throw new Error("checkout contains changes or ignored files");
+        if (!(await cleanStatus(target))) throw new Error("checkout contains tracked changes or untracked files");
         await runGit(["worktree", "remove", target], repo.primaryRoot, 60_000);
       } catch (error) {
         removalError = error;
@@ -315,7 +314,7 @@ export async function removeManaged(repo: RepositoryContext, name: string, activ
       const owners = leases.map((lease) => lease.pid === undefined ? `${lease.path} (${lease.detail ?? "ambiguous owner"})` : `PID ${lease.pid}`).join(", ");
       throw new Error(`Worktree ${name} is leased by a live or ambiguous Pi process: ${owners}`);
     }
-    if (!(await cleanStatus(record.path))) throw new Error(`Worktree ${name} has changes or ignored files; refusing removal`);
+    if (!(await cleanStatus(record.path))) throw new Error(`Worktree ${name} has tracked changes or untracked files; refusing removal`);
     await runGit(["worktree", "remove", record.path], currentRepo.primaryRoot, 60_000);
     await removeRecord(currentRepo.commonDir, name);
     return record;
@@ -336,7 +335,7 @@ export async function rollbackCreated(prepared: PreparedWorktree): Promise<Rollb
       const leases = await listLiveLeasesUnlocked(prepared.repo.commonDir, prepared.record.name);
       if (leases.length > 0) return { removed: false, reason: `worktree has a live or ambiguous process lease (${leases.map((lease) => lease.pid ?? lease.path).join(", ")})` };
       const status = await getManagedStatus(prepared.record);
-      if (!status.clean || status.head !== prepared.record.baseOid) return { removed: false, reason: "worktree changed after creation (ignored files count as changes)" };
+      if (!status.clean || status.head !== prepared.record.baseOid) return { removed: false, reason: "worktree changed after creation" };
       await runGit(["worktree", "remove", prepared.record.path], prepared.repo.primaryRoot, 60_000);
       // Never delete the branch unless checkout removal completed successfully.
       try {
