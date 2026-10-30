@@ -60,18 +60,20 @@ export async function resolveRepository(cwd: string): Promise<RepositoryContext>
   const commonOutput = (await runGit(["rev-parse", "--git-common-dir"], sourceRoot)).stdout.trim();
   const commonDir = await canonicalExisting(resolve(sourceRoot, commonOutput));
   let worktreesRaw: string;
+  let nulDelimited = true;
   try {
     worktreesRaw = (await runGit(["worktree", "list", "--porcelain", "-z"], sourceRoot)).stdout;
   } catch (error) {
     // git < 2.38 does not support the -z flag for worktree list.
     // Exit code 129 indicates a usage error (unknown switch).
     if (error instanceof GitError && error.exitCode === 129) {
+      nulDelimited = false;
       worktreesRaw = (await runGit(["worktree", "list", "--porcelain"], sourceRoot)).stdout;
     } else {
       throw error;
     }
   }
-  const worktrees = parseWorktreePorcelain(worktreesRaw);
+  const worktrees = parseWorktreePorcelain(worktreesRaw, nulDelimited);
   const first = worktrees[0];
   if (!first || first.bare) throw new Error("Could not resolve the primary non-bare checkout");
   const primaryRoot = await canonicalExisting(first.path);

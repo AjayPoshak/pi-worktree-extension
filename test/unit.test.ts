@@ -18,14 +18,24 @@ for (const invalid of ["", "A", "-a", "a_b", "a/b", "../x", "a".repeat(49), "x Y
   test(`invalid slug: ${invalid}`, () => assert.throws(() => validateSlug(invalid)));
 }
 
-test("porcelain parser handles NUL records, spaces, flags, and unknown fields", () => {
+test("porcelain parser handles NUL records, newlines in paths, flags, and unknown fields", () => {
   const parsed = parseWorktreePorcelain(
-    "worktree /tmp/main repo\0HEAD 012345\0branch refs/heads/main\0future value\0\0" +
+    "worktree /tmp/main\nrepo\0HEAD 012345\0branch refs/heads/main\0future value\0\0" +
     "worktree /tmp/linked\0HEAD abcdef\0detached\0locked reason with spaces\0\0",
   );
   assert.deepEqual(parsed, [
-    { path: "/tmp/main repo", head: "012345", branch: "refs/heads/main", bare: false, detached: false },
+    { path: "/tmp/main\nrepo", head: "012345", branch: "refs/heads/main", bare: false, detached: false },
     { path: "/tmp/linked", head: "abcdef", bare: false, detached: true, locked: "reason with spaces" },
+  ]);
+});
+
+test("porcelain parser handles newline-delimited fallback output", () => {
+  const parsed = parseWorktreePorcelain(
+    "worktree /tmp/main repo\nHEAD 012345\nbranch refs/heads/main\n\n",
+    false,
+  );
+  assert.deepEqual(parsed, [
+    { path: "/tmp/main repo", head: "012345", branch: "refs/heads/main", bare: false, detached: false },
   ]);
 });
 
