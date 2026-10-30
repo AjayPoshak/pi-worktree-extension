@@ -8,9 +8,9 @@ export interface WorktreePorcelainEntry {
   prunable?: string;
 }
 
-/** Parse `git worktree list --porcelain -z` without line or whitespace assumptions. */
-export function parseWorktreePorcelain(input: string): WorktreePorcelainEntry[] {
-  const tokens = input.split("\0");
+/** Parse `git worktree list --porcelain`, using the delimiter selected by the command. */
+export function parseWorktreePorcelain(input: string, nulDelimited = true): WorktreePorcelainEntry[] {
+  const tokens = nulDelimited ? input.split("\0") : input.split(/\r?\n/);
   const entries: WorktreePorcelainEntry[] = [];
   let current: WorktreePorcelainEntry | undefined;
 
