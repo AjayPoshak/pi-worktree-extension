@@ -41,7 +41,7 @@ if [[ "$real_pi" -ef "$script_source" ]]; then
   echo "pi-worktree: PI_WORKTREE_REAL_PI resolves to this launcher (recursion refused)" >&2
   exit 2
 fi
-if [[ ! -f "$package_dir/dist/src/launcher-prepare.js" ]]; then
+if [[ ! -f "$package_dir/dist/src/launcher-prepare.js" || ! -f "$package_dir/dist/src/terminal.js" ]]; then
   echo "pi-worktree: build output is missing; run npm run build in $package_dir" >&2
   exit 2
 fi
@@ -56,16 +56,8 @@ fi
 # cmux's new-tab cwd is updated by its shell-integration socket protocol.
 # The similarly named surface.report_pwd JSON-RPC method is not a public API.
 if [[ -n "${CMUX_SOCKET_PATH:-}" && -n "${CMUX_TAB_ID:-${CMUX_WORKSPACE_ID:-}}" && -n "${CMUX_PANEL_ID:-${CMUX_SURFACE_ID:-}}" ]]; then
-  node -e '
-    const net = require("node:net");
-    const [socketPath, tab, panel, cwd] = process.argv.slice(1);
-    const quoted = cwd.replaceAll("\\", "\\\\").replaceAll("\"", "\\\"");
-    const socket = net.createConnection(socketPath, () =>
-      socket.end(`report_pwd "${quoted}" --tab=${tab} --panel=${panel}\n`)
-    );
-    const timer = setTimeout(() => { socket.destroy(); process.exit(0); }, 1000);
-    socket.on("error", () => { clearTimeout(timer); process.exit(0); });
-  ' "$CMUX_SOCKET_PATH" "${CMUX_TAB_ID:-$CMUX_WORKSPACE_ID}" "${CMUX_PANEL_ID:-$CMUX_SURFACE_ID}" "$target" >/dev/null 2>&1 || true
+  node -e 'import(process.argv[1]).then(({ reportCmuxCwd }) => reportCmuxCwd(process.argv[2]))' \
+    "$package_dir/dist/src/terminal.js" "$target" >/dev/null 2>&1 || true
 fi
 
 exec "$real_pi" --continue "$@"

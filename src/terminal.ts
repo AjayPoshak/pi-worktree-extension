@@ -6,6 +6,8 @@ interface TerminalOutput {
   write(text: string): unknown;
 }
 
+const cmuxIdentifier = /^[A-Za-z0-9._:-]{1,64}$/;
+
 export function reportTerminalCwd(cwd: string, output: TerminalOutput = process.stdout): boolean {
   if (!output.isTTY) return false;
   output.write(`\x1b]7;${pathToFileURL(cwd).href}\x1b\\`);
@@ -17,7 +19,7 @@ export async function reportCmuxCwd(cwd: string, environment = process.env): Pro
   const socketPath = environment.CMUX_SOCKET_PATH;
   const tabId = environment.CMUX_TAB_ID ?? environment.CMUX_WORKSPACE_ID;
   const panelId = environment.CMUX_PANEL_ID ?? environment.CMUX_SURFACE_ID;
-  if (!socketPath || !tabId || !panelId) return false;
+  if (!socketPath || !tabId || !panelId || !cmuxIdentifier.test(tabId) || !cmuxIdentifier.test(panelId) || /[\r\n\0]/.test(cwd)) return false;
 
   // This is cmux's shell-integration protocol, not its public JSON-RPC API.
   const quotedCwd = cwd.replaceAll("\\", "\\\\").replaceAll('"', '\\"');

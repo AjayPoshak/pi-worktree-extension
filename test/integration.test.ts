@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { execFile as execFileCallback } from "node:child_process";
 import { promisify } from "node:util";
 import { chmod, lstat, mkdtemp, mkdir, readFile, realpath, rm, symlink, writeFile } from "node:fs/promises";
+import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -135,6 +136,35 @@ test("startup launcher creates, reuses, changes cwd, and passes Pi arguments", a
     assert.equal(await readFile(join(capture, "cwd"), "utf8"), join(fixture.repo, ".pi", "worktrees", "linked"));
     await assert.rejects(readFile(join(fixture.home, ".pi", "agent", "worktree.json")), /ENOENT/);
   } finally { await rm(fixture.root, { recursive: true, force: true }); }
+});
+
+test("startup launcher ignores unsafe cmux identifiers", async () => {
+  const fixture = await makeRepository();
+  const socketPath = join(fixture.root, "cmux.sock");
+  const fakePi = join(fixture.root, "real-pi");
+  let connections = 0;
+  const server = createServer(() => { connections += 1; });
+  try {
+    await writeFile(fakePi, "#!/usr/bin/env bash\nexit 0\n");
+    await chmod(fakePi, 0o755);
+    await new Promise<void>((resolve, reject) => server.listen(socketPath, resolve).once("error", reject));
+    await execFile(join(process.cwd(), "bin", "pi-worktree"), ["unsafe-cmux"], {
+      cwd: fixture.repo,
+      env: {
+        ...process.env,
+        HOME: fixture.home,
+        PI_WORKTREE_REAL_PI: fakePi,
+        CMUX_SOCKET_PATH: socketPath,
+        CMUX_TAB_ID: 'tab\nreport_pwd "/injected" --tab=evil --panel=evil',
+        CMUX_PANEL_ID: "panel-id",
+      },
+    });
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    assert.equal(connections, 0);
+  } finally {
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+    await rm(fixture.root, { recursive: true, force: true });
+  }
 });
 
 test("ignored files match Git worktree removal behavior", async () => {
