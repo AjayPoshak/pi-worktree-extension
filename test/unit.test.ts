@@ -68,6 +68,16 @@ test("reports the exact surface cwd through cmux's shell socket", async () => {
     assert.deepEqual(received.split("\n").filter(Boolean), [
       'report_pwd "/repo/.pi/worktrees/fix \\"quoted\\"" --tab=tab-id --panel=panel-id',
     ]);
+    assert.equal(await reportCmuxCwd("/repo", {
+      ...process.env,
+      CMUX_SOCKET_PATH: socketPath,
+      CMUX_TAB_ID: "",
+      CMUX_WORKSPACE_ID: "workspace-id",
+      CMUX_PANEL_ID: "",
+      CMUX_SURFACE_ID: "surface-id",
+    }), true);
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    assert.deepEqual(received.split("\n").filter(Boolean).at(-1), 'report_pwd "/repo" --tab=workspace-id --panel=surface-id');
 
     for (const environment of [
       { CMUX_TAB_ID: 'tab\nreport_pwd "/injected" --tab=evil --panel=evil', CMUX_PANEL_ID: "panel-id" },
@@ -79,7 +89,7 @@ test("reports the exact surface cwd through cmux's shell socket", async () => {
       ...process.env, CMUX_SOCKET_PATH: socketPath, CMUX_TAB_ID: "tab-id", CMUX_PANEL_ID: "panel-id",
     }), false);
     await new Promise((resolve) => setTimeout(resolve, 20));
-    assert.equal(connections, 1);
+    assert.equal(connections, 2);
   } finally {
     await new Promise<void>((resolve) => server.close(() => resolve()));
     await rm(root, { recursive: true, force: true });

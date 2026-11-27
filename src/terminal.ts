@@ -17,8 +17,8 @@ export function reportTerminalCwd(cwd: string, output: TerminalOutput = process.
 /** Update cmux's shell state, which drives its new-tab directory. */
 export async function reportCmuxCwd(cwd: string, environment = process.env): Promise<boolean> {
   const socketPath = environment.CMUX_SOCKET_PATH;
-  const tabId = environment.CMUX_TAB_ID ?? environment.CMUX_WORKSPACE_ID;
-  const panelId = environment.CMUX_PANEL_ID ?? environment.CMUX_SURFACE_ID;
+  const tabId = environment.CMUX_TAB_ID || environment.CMUX_WORKSPACE_ID;
+  const panelId = environment.CMUX_PANEL_ID || environment.CMUX_SURFACE_ID;
   if (!socketPath || !tabId || !panelId || !cmuxIdentifier.test(tabId) || !cmuxIdentifier.test(panelId) || /[\r\n\0]/.test(cwd)) return false;
 
   // This is cmux's shell-integration protocol, not its public JSON-RPC API.
