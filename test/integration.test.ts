@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { execFile as execFileCallback } from "node:child_process";
 import { promisify } from "node:util";
-import { chmod, lstat, mkdtemp, mkdir, readFile, realpath, rm, symlink, writeFile } from "node:fs/promises";
+import { chmod, cp, lstat, mkdtemp, mkdir, readFile, realpath, rm, symlink, writeFile } from "node:fs/promises";
 import { createServer, type Socket } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -194,6 +194,38 @@ test("startup launcher exits when cmux keeps its socket open", async () => {
     });
   } finally {
     for (const socket of peers) socket.destroy();
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+    await rm(fixture.root, { recursive: true, force: true });
+  }
+});
+
+test("startup launcher loads cmux reporting from a package path with URL characters", async () => {
+  const fixture = await makeRepository();
+  const packageRoot = join(fixture.root, "pi-worktree#test?100%");
+  const socketPath = join(fixture.root, "cmux.sock");
+  const fakePi = join(fixture.root, "real-pi");
+  let received = "";
+  const server = createServer((socket) => socket.on("data", (chunk) => { received += chunk.toString(); }));
+  try {
+    await cp(join(process.cwd(), "bin"), join(packageRoot, "bin"), { recursive: true });
+    await cp(join(process.cwd(), "dist"), join(packageRoot, "dist"), { recursive: true });
+    await writeFile(fakePi, "#!/usr/bin/env bash\nexit 0\n");
+    await chmod(fakePi, 0o755);
+    await new Promise<void>((resolve, reject) => server.listen(socketPath, resolve).once("error", reject));
+    await execFile(join(packageRoot, "bin", "pi-worktree"), ["special-path"], {
+      cwd: fixture.repo,
+      env: {
+        ...process.env,
+        HOME: fixture.home,
+        PI_WORKTREE_REAL_PI: fakePi,
+        CMUX_SOCKET_PATH: socketPath,
+        CMUX_TAB_ID: "tab-id",
+        CMUX_PANEL_ID: "panel-id",
+      },
+    });
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    assert.match(received, /^report_pwd ".*worktrees\/special-path" --tab=tab-id --panel=panel-id\n$/);
+  } finally {
     await new Promise<void>((resolve) => server.close(() => resolve()));
     await rm(fixture.root, { recursive: true, force: true });
   }
