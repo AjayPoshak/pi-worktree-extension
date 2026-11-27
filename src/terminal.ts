@@ -36,7 +36,10 @@ export async function reportCmuxCwd(cwd: string, environment = process.env): Pro
     socket.once("error", () => finish(false));
     // A successful local write is enough: cmux closes this one-way protocol
     // without a response and may reset the connection after consuming it.
-    socket.once("connect", () => socket.end(`report_pwd "${quotedCwd}" ${options}\n`, () => finish(true)));
+    socket.once("connect", () => socket.end(`report_pwd "${quotedCwd}" ${options}\n`, () => {
+      socket.destroy();
+      finish(true);
+    }));
   });
 
   // Match cmux's bundled shell integration exactly. This single report updates

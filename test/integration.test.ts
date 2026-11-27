@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { execFile as execFileCallback } from "node:child_process";
 import { promisify } from "node:util";
 import { chmod, lstat, mkdtemp, mkdir, readFile, realpath, rm, symlink, writeFile } from "node:fs/promises";
-import { createServer } from "node:net";
+import { createServer, type Socket } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -162,6 +162,38 @@ test("startup launcher ignores unsafe cmux identifiers", async () => {
     await new Promise((resolve) => setTimeout(resolve, 20));
     assert.equal(connections, 0);
   } finally {
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+    await rm(fixture.root, { recursive: true, force: true });
+  }
+});
+
+test("startup launcher exits when cmux keeps its socket open", async () => {
+  const fixture = await makeRepository();
+  const socketPath = join(fixture.root, "cmux.sock");
+  const fakePi = join(fixture.root, "real-pi");
+  const peers = new Set<Socket>();
+  const server = createServer({ allowHalfOpen: true }, (socket) => {
+    peers.add(socket);
+    socket.once("close", () => peers.delete(socket));
+  });
+  try {
+    await writeFile(fakePi, "#!/usr/bin/env bash\nexit 0\n");
+    await chmod(fakePi, 0o755);
+    await new Promise<void>((resolve, reject) => server.listen(socketPath, resolve).once("error", reject));
+    await execFile(join(process.cwd(), "bin", "pi-worktree"), ["cmux-peer"], {
+      cwd: fixture.repo,
+      timeout: 5_000,
+      env: {
+        ...process.env,
+        HOME: fixture.home,
+        PI_WORKTREE_REAL_PI: fakePi,
+        CMUX_SOCKET_PATH: socketPath,
+        CMUX_TAB_ID: "tab-id",
+        CMUX_PANEL_ID: "panel-id",
+      },
+    });
+  } finally {
+    for (const socket of peers) socket.destroy();
     await new Promise<void>((resolve) => server.close(() => resolve()));
     await rm(fixture.root, { recursive: true, force: true });
   }
