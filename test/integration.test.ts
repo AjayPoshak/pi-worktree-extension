@@ -205,7 +205,12 @@ test("startup launcher loads cmux reporting from a package path with URL charact
   const socketPath = join(fixture.root, "cmux.sock");
   const fakePi = join(fixture.root, "real-pi");
   let received = "";
-  const server = createServer((socket) => socket.on("data", (chunk) => { received += chunk.toString(); }));
+  let resolveEnd!: () => void;
+  const receivedEnd = new Promise<void>((resolve) => { resolveEnd = resolve; });
+  const server = createServer((socket) => {
+    socket.on("data", (chunk) => { received += chunk.toString(); });
+    socket.once("end", resolveEnd);
+  });
   try {
     await cp(join(process.cwd(), "bin"), join(packageRoot, "bin"), { recursive: true });
     await cp(join(process.cwd(), "dist"), join(packageRoot, "dist"), { recursive: true });
@@ -223,7 +228,7 @@ test("startup launcher loads cmux reporting from a package path with URL charact
         CMUX_PANEL_ID: "panel-id",
       },
     });
-    await new Promise((resolve) => setTimeout(resolve, 20));
+    await receivedEnd;
     assert.match(received, /^report_pwd ".*worktrees\/special-path" --tab=tab-id --panel=panel-id\n$/);
   } finally {
     await new Promise<void>((resolve) => server.close(() => resolve()));

@@ -33,12 +33,16 @@ export async function reportCmuxCwd(cwd: string, environment = process.env): Pro
     };
     const socket = createConnection(socketPath);
     const timer = setTimeout(() => { socket.destroy(); finish(false); }, 1_000);
-    socket.once("error", () => finish(false));
+    let writeFailed = false;
+    socket.once("error", () => {
+      writeFailed = true;
+      finish(false);
+    });
     // A successful local write is enough: cmux closes this one-way protocol
     // without a response and may reset the connection after consuming it.
     socket.once("connect", () => socket.end(`report_pwd "${quotedCwd}" ${options}\n`, () => {
       socket.destroy();
-      finish(true);
+      finish(!writeFailed);
     }));
   });
 
