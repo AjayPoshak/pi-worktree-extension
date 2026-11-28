@@ -51,7 +51,21 @@ test("reports the exact surface cwd through cmux's shell socket", async () => {
   const root = await mkdtemp(join(tmpdir(), "pi-worktree-cmux-"));
   const socketPath = join(root, "cmux.sock");
   let received = "";
-  const server = createServer((socket) => socket.on("data", (chunk) => { received += chunk.toString(); }));
+  let connections = 0;
+  let ended = 0;
+  let resolveEnd: (() => void) | undefined;
+  const waitForEnds = (count: number): Promise<void> => ended >= count
+    ? Promise.resolve()
+    : new Promise((resolve) => { resolveEnd = resolve; });
+  const server = createServer((socket) => {
+    connections += 1;
+    socket.on("data", (chunk) => { received += chunk.toString(); });
+    socket.once("end", () => {
+      ended += 1;
+      resolveEnd?.();
+      resolveEnd = undefined;
+    });
+  });
   try {
     await new Promise<void>((resolve, reject) => server.listen(socketPath, resolve).once("error", reject));
     assert.equal(await reportCmuxCwd('/repo/.pi/worktrees/fix "quoted"', {
@@ -60,10 +74,31 @@ test("reports the exact surface cwd through cmux's shell socket", async () => {
       CMUX_TAB_ID: "tab-id",
       CMUX_PANEL_ID: "panel-id",
     }), true);
-    await new Promise((resolve) => setTimeout(resolve, 20));
+    await waitForEnds(1);
     assert.deepEqual(received.split("\n").filter(Boolean), [
       'report_pwd "/repo/.pi/worktrees/fix \\"quoted\\"" --tab=tab-id --panel=panel-id',
     ]);
+    assert.equal(await reportCmuxCwd("/repo", {
+      ...process.env,
+      CMUX_SOCKET_PATH: socketPath,
+      CMUX_TAB_ID: "",
+      CMUX_WORKSPACE_ID: "workspace-id",
+      CMUX_PANEL_ID: "",
+      CMUX_SURFACE_ID: "surface-id",
+    }), true);
+    await waitForEnds(2);
+    assert.deepEqual(received.split("\n").filter(Boolean).at(-1), 'report_pwd "/repo" --tab=workspace-id --panel=surface-id');
+
+    for (const environment of [
+      { CMUX_TAB_ID: 'tab\nreport_pwd "/injected" --tab=evil --panel=evil', CMUX_PANEL_ID: "panel-id" },
+      { CMUX_TAB_ID: "tab-id", CMUX_PANEL_ID: 'panel\nreport_pwd "/injected" --tab=evil --panel=evil' },
+    ]) {
+      assert.equal(await reportCmuxCwd("/repo", { ...process.env, CMUX_SOCKET_PATH: socketPath, ...environment }), false);
+    }
+    assert.equal(await reportCmuxCwd("/repo\n/injected", {
+      ...process.env, CMUX_SOCKET_PATH: socketPath, CMUX_TAB_ID: "tab-id", CMUX_PANEL_ID: "panel-id",
+    }), false);
+    assert.equal(connections, 2);
   } finally {
     await new Promise<void>((resolve) => server.close(() => resolve()));
     await rm(root, { recursive: true, force: true });
